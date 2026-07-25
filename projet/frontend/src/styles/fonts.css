@@ -1,0 +1,28 @@
+/*
+ * Polices premium utilisées par la landing page (Fraunces / Inter / JetBrains Mono)
+ * et utilitaires associés. À importer une seule fois, par exemple dans main.jsx
+ * ou en haut de votre index.css principal :
+ *   import "./styles/fonts.css";
+ */
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+.font-display {
+  font-family: "Fraunces", ui-serif, serif;
+}
+
+.font-mono-custom {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+}
+
+body {
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+/* import des polices Google Fonts (Fraunces, Inter, JetBrains Mono) + classes utilitaires (.font-display, .font-mono-custom) + réduction de mouvement pour l'accessibilité
