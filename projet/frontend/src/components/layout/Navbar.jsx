@@ -2,10 +2,13 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Store, Menu, X, ArrowRight } from "lucide-react";
 import { NAV_LINKS } from "../../data/navigation";
+import Modal from "../ui/Modal";
+import FormulaireConnexion from "../auth/FormulaireConnexion";
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [isLoginOuvert, setIsLoginOuvert] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -44,12 +47,12 @@ export default function Navbar() {
         </div>
 
         <div className="hidden md:flex items-center gap-3">
-          <a
-            href="#signin"
+          <button
+            onClick={() => setIsLoginOuvert(true)}
             className="text-[14px] font-medium text-[#12181B]/70 hover:text-[#12181B] transition-colors px-4 py-2"
           >
             Connexion
-          </a>
+          </button>
           <a
             href="#cta"
             className="inline-flex items-center gap-1.5 rounded-full bg-[#12181B] text-[#F6F7F2] text-[14px] font-medium px-5 py-2.5 hover:bg-[#0E7C66] transition-colors duration-300 shadow-sm"
@@ -100,6 +103,9 @@ export default function Navbar() {
           </motion.div>
         )}
       </AnimatePresence>
+      <Modal isOpen={isLoginOuvert} onClose={() => setIsLoginOuvert(false)}>
+        <FormulaireConnexion onSuccess={() => setIsLoginOuvert(false)} />
+      </Modal>
     </header>
   );
 }
