@@ -10,12 +10,34 @@ const RECEIPT_ITEMS = [
   { label: "Ceinture cuir", meta: "x1", price: "18 000 Ar", delay: 1.3 },
 ];
 
+// Filigrane du drapeau malgache (blanc / rouge / vert), en arrière-plan du hero
+function MadagascarFlagBackground() {
+  return (
+    <div
+      aria-hidden="true"
+      className="absolute inset-0 pointer-events-none overflow-hidden [mask-image:linear-gradient(to_bottom,transparent,black_12%,black_88%,transparent)]"
+    >
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[1500px] h-[950px] opacity-[0.16] flex rounded-[48px] overflow-hidden rotate-[-2deg] shadow-[0_0_120px_40px_rgba(0,0,0,0.02)]">
+        {/* Bande blanche verticale (1/3 gauche) */}
+        <div className="w-1/3 h-full bg-white" />
+        {/* Bandes rouge / verte horizontales (2/3 droite) */}
+        <div className="w-2/3 h-full flex flex-col">
+          <div className="h-1/2 w-full bg-[#FC3D32]" />
+          <div className="h-1/2 w-full bg-[#007E49]" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 export default function Hero() {
   return (
     <section
       id="top"
       className="relative pt-40 pb-28 lg:pt-52 lg:pb-36 px-6 lg:px-8 overflow-hidden bg-[#FBFAF6]"
     >
+      <MadagascarFlagBackground />
       <TicketPattern className="absolute top-0 right-0 w-[900px] h-[700px] text-[#0E7C66] opacity-70 pointer-events-none -translate-y-10 translate-x-32" />
 
       <div className="max-w-7xl mx-auto relative">
@@ -25,24 +47,22 @@ export default function Hero() {
             <Reveal>
               <span className="inline-flex items-center gap-2 rounded-full border border-[#12181B]/10 bg-white/60 backdrop-blur px-3.5 py-1.5 text-[12.5px] font-mono-custom text-[#0E7C66] tracking-tight">
                 <Sparkles size={13} />
-                Compatible Mvola · Orange Money · Airtel Money
+                Paiement via Mvola · Orange Money · Airtel Money
               </span>
             </Reveal>
 
             <Reveal delay={1}>
               <h1 className="font-display mt-7 text-[42px] leading-[1.08] sm:text-[52px] sm:leading-[1.06] lg:text-[58px] font-medium tracking-tight text-[#12181B]">
-                Votre boutique,
+                Vendez en ligne facilement,
                 <br />
-                tenue au <span className="italic text-[#0E7C66]">tapotement</span>
-                <br />près.
+                partout à <span className="italic text-[#0E7C66]">Madagascar</span>
+                <br />
               </h1>
             </Reveal>
 
             <Reveal delay={2}>
               <p className="mt-6 text-[17px] leading-relaxed text-[#12181B]/65 max-w-lg">
-                Varotra remplace le cahier de comptes par une caisse claire : présentez
-                vos produits, encaissez en mobile money, suivez votre stock et gardez
-                le fil avec vos clients — même sans réseau.
+                Une plateforme simple pour créer, gérer et développer votre commerce en ligne.
               </p>
             </Reveal>
 

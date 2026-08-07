@@ -1,7 +1,8 @@
 from django.urls import path
+from .views import MaBoutiqueView
 
 app_name = "tenants"
 
 urlpatterns = [
-    # Ajoutez ici les routes de l'app tenants
+    path("ma-boutique/", MaBoutiqueView.as_view()),
 ]

@@ -1,3 +1,10 @@
 from django.contrib import admin
+from .models import Tenant
 
-# Enregistrez ici vos modèles
+
+@admin.register(Tenant)
+class TenantAdmin(admin.ModelAdmin):
+    list_display = ("nom_boutique", "commercant", "ville", "statut", "est_verifie", "note_moyenne", "date_creation")
+    list_filter = ("statut", "ville", "est_verifie", "langue_preferee")
+    search_fields = ("nom_boutique", "sous_domaine", "commercant__email", "numero_nif")
+    readonly_fields = ("date_creation", "date_modification", "note_moyenne", "nombre_avis", "nombre_ventes")

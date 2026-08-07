@@ -4,11 +4,13 @@ import { Store, Menu, X, ArrowRight } from "lucide-react";
 import { NAV_LINKS } from "../../data/navigation";
 import Modal from "../ui/Modal";
 import FormulaireConnexion from "../auth/FormulaireConnexion";
+import FormulaireInscription from "../auth/FormulaireInscription";
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isLoginOuvert, setIsLoginOuvert] = useState(false);
+  const [authView, setAuthView] = useState("connexion"); // "connexion" | "inscription"
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -103,8 +105,21 @@ export default function Navbar() {
           </motion.div>
         )}
       </AnimatePresence>
-      <Modal isOpen={isLoginOuvert} onClose={() => setIsLoginOuvert(false)}>
-        <FormulaireConnexion onSuccess={() => setIsLoginOuvert(false)} />
+      <Modal
+        isOpen={isLoginOuvert}
+        onClose={() => {
+          setIsLoginOuvert(false);
+          setAuthView("connexion"); // reset pour la prochaine ouverture
+        }}
+      >
+        {authView === "connexion" ? (
+          <FormulaireConnexion
+            onSuccess={() => setIsLoginOuvert(false)}
+            onSwitchToInscription={() => setAuthView("inscription")}
+          />
+        ) : (
+          <FormulaireInscription onSwitchToConnexion={() => setAuthView("connexion")} />
+        )}
       </Modal>
     </header>
   );

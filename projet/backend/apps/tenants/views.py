@@ -1,3 +1,13 @@
-from rest_framework import viewsets
+from rest_framework import generics
+from rest_framework.permissions import IsAuthenticated
+from apps.comptes.permissions import EstCommercant
+from .models import Tenant
+from .serializers import TenantSerializer
 
-# Créez ici vos ViewSets DRF
+
+class MaBoutiqueView(generics.RetrieveUpdateAPIView):
+    serializer_class = TenantSerializer
+    permission_classes = [IsAuthenticated, EstCommercant]
+
+    def get_object(self):
+        return self.request.user.boutique

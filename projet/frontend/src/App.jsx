@@ -1,32 +1,38 @@
-import { useState } from "react";
-import Navbar from "./components/layout/Navbar";
-import Footer from "./components/layout/Footer";
-import Hero from "./components/sections/Hero";
-import LogoCloud from "./components/sections/LogoCloud";
-import Features from "./components/sections/Features";
-import ImageText from "./components/sections/ImageText";
-import Stats from "./components/sections/Stats";
-import Testimonials from "./components/sections/Testimonials";
-import FAQ from "./components/sections/FAQ";
-import CTA from "./components/sections/CTA";
-import Modal from "./components/ui/Modal";
-
+import { Routes, Route } from "react-router-dom";
+import LandingPage from "./pages/LandingPage";
+import CommercantDashboard from "./pages/commercant/Dashboard";
+import AdminDashboard from "./pages/admin/Dashboard";
+import RouteProtegee from "./components/auth/RouteProtegee";
+import Produits from "./pages/commercant/Produits";
 
 export default function App() {
   return (
-    <div className="min-h-screen bg-[#FBFAF6] antialiased">
-      <Navbar />
-      <main>
-        <Hero />
-        <LogoCloud />
-        <Features />
-        <ImageText />
-        <Stats />
-        <Testimonials />
-        <FAQ />
-        <CTA />
-      </main>
-      <Footer />
-    </div>
+    <Routes>
+      <Route path="/" element={<LandingPage />} />
+      <Route
+        path="/commercant"
+        element={
+          <RouteProtegee rolesAutorises={["commercant"]}>
+            <CommercantDashboard />
+          </RouteProtegee>
+        }
+      />
+      <Route
+        path="/admin"
+        element={
+          <RouteProtegee rolesAutorises={["superadmin"]}>
+            <AdminDashboard />
+          </RouteProtegee>
+        }
+      />
+      <Route
+        path="/commercant/produits"
+        element={
+          <RouteProtegee rolesAutorises={["commercant"]}>
+      <     Produits />
+          </RouteProtegee>
+        }
+      />
+    </Routes>
   );
 }
