@@ -6,6 +6,23 @@ from .models import Categorie, Produit
 from .serializers import CategorieSerializer, ProduitSerializer
 from django.utils.text import slugify
 from rest_framework.exceptions import ValidationError
+from google import genai
+from django.conf import settings
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.throttling import UserRateThrottle
+from rest_framework import status
+from rest_framework.parsers import MultiPartParser, FormParser
+from django.shortcuts import get_object_or_404
+from .models import ImageProduit
+from .serializers import ImageProduitSerializer
+
+from .serializers import GenerateDescriptionSerializer
+
+import logging
+logger = logging.getLogger(__name__)
+
 
 
 class CategorieViewSet(viewsets.ModelViewSet):
@@ -56,3 +73,100 @@ class ProduitsPublicsView(generics.ListAPIView):
         return Produit.objects.filter(
             tenant__sous_domaine=sous_domaine, statut="publie", est_supprime=False
         )
+
+# API Gemini pour les complétions de texte
+class DescriptionGenerationThrottle(UserRateThrottle):
+    scope = "description_generation"
+
+
+class GenerateDescriptionView(APIView):
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [DescriptionGenerationThrottle]
+
+    def post(self, request):
+        serializer = GenerateDescriptionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        nom = serializer.validated_data["nom"]
+
+        try:
+            client = genai.Client(api_key=settings.GEMINI_API_KEY)
+
+            response = client.models.generate_content(
+    model="gemini-flash-latest",
+    contents=(
+        f"Tu es rédacteur de fiches produit pour une boutique en ligne. "
+        f"Rédige une description claire et informative pour ce produit : \"{nom}\".\n\n"
+        f"Consignes :\n"
+        f"- 2 à 3 phrases maximum, en français\n"
+        f"- Décris le produit et son usage concret, pas un discours de vente\n"
+        f"- Ton neutre et clair, comme une fiche produit, pas publicitaire\n"
+        f"- N'utilise aucun superlatif (\"incroyable\", \"exceptionnel\", \"le meilleur\", "
+        f"\"parfait\") ni formule d'accroche commerciale\n"
+        f"- N'invente aucune caractéristique technique précise (taille, matière, prix, marque) "
+        f"que tu ne connais pas à partir du nom du produit\n\n"
+        f"Réponds uniquement avec la description finale, sans titre, sans guillemets, "
+        f"sans préambule ni commentaire."
+    ),
+)
+
+            return Response(
+                {"description": response.text}, status=status.HTTP_200_OK
+            )
+
+        except Exception as e:
+            logger.exception("Erreur génération description Gemini")  # <-- affiche le traceback complet
+            return Response(
+                {"error": "Erreur lors de la génération de la description.", "detail": str(e)},  # <-- temporaire, pour debug
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+#################
+class ImageProduitListCreateView(generics.ListCreateAPIView):
+    """Liste et upload des images d'un produit précis."""
+    serializer_class = ImageProduitSerializer
+    permission_classes = [IsAuthenticated, EstCommercant]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get_produit(self):
+        return get_object_or_404(
+            Produit,
+            id=self.kwargs["produit_id"],
+            tenant=self.request.user.boutique,
+            est_supprime=False,
+        )
+
+    def get_queryset(self):
+        return ImageProduit.objects.filter(produit=self.get_produit())
+
+    def perform_create(self, serializer):
+        produit = self.get_produit()
+        est_principale = serializer.validated_data.get("est_principale", False)
+        if est_principale:
+            ImageProduit.objects.filter(produit=produit, est_principale=True).update(est_principale=False)
+        elif not ImageProduit.objects.filter(produit=produit).exists():
+            est_principale = True  # première image du produit
+        serializer.save(produit=produit, est_principale=est_principale)
+
+
+class ImageProduitDetailView(generics.DestroyAPIView):
+    """Suppression d'une image (tenant vérifié via la relation produit)."""
+    serializer_class = ImageProduitSerializer
+    permission_classes = [IsAuthenticated, EstCommercant]
+    lookup_url_kwarg = "image_id"
+
+    def get_queryset(self):
+        return ImageProduit.objects.filter(produit__tenant=self.request.user.boutique)
+
+
+class DefinirImagePrincipaleView(APIView):
+    permission_classes = [IsAuthenticated, EstCommercant]
+
+    def post(self, request, image_id):
+        image = get_object_or_404(
+            ImageProduit, id=image_id, produit__tenant=request.user.boutique
+        )
+        ImageProduit.objects.filter(produit=image.produit, est_principale=True).update(est_principale=False)
+        image.est_principale = True
+        image.save(update_fields=["est_principale"])
+        return Response(ImageProduitSerializer(image).data, status=status.HTTP_200_OK)

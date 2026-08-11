@@ -13,6 +13,7 @@ class ImageProduitSerializer(serializers.ModelSerializer):
     class Meta:
         model = ImageProduit
         fields = ["id", "image", "est_principale", "ordre"]
+        read_only_fields = ["id"]
 
 
 class VarianteProduitSerializer(serializers.ModelSerializer):
@@ -42,3 +43,7 @@ class ProduitSerializer(serializers.ModelSerializer):
             "id", "slug", "note_moyenne", "nombre_avis", "nombre_ventes",
             "date_publication", "date_creation", "date_modification",
         ]
+
+# API Gemini pour les complétions de texte
+class GenerateDescriptionSerializer(serializers.Serializer):
+    nom = serializers.CharField(max_length=255, allow_blank=False)

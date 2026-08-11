@@ -139,5 +139,16 @@ docker compose exec backend python manage.py <commande>   # exécuter une comman
 
   - Et pour migrer : * docker compose exec backend python manage.py makemigrations
                     * docker compose exec backend python manage.py migrate
+
+
+
+
+
+Commit github : 
+    git status
+    git add .
+    git status
+    git commit -m "exemple ..."
+    git push origin main
                     
 

@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { X } from "lucide-react";
 
-export default function Modal({ isOpen, onClose, children }) {
+export default function Modal({ isOpen, onClose, children, maxWidth = "max-w-lg" }) {
   useEffect(() => {
     if (!isOpen) return;
 
@@ -32,7 +32,7 @@ export default function Modal({ isOpen, onClose, children }) {
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ duration: 0.2 }}
             onClick={(e) => e.stopPropagation()}
-            className="relative w-full max-w-sm rounded-2xl bg-[#FBFAF6] p-6 shadow-xl"
+            className={`relative w-full ${maxWidth} rounded-2xl bg-[#FBFAF6] p-6 shadow-xl`}
           >
             <button
               onClick={onClose}
