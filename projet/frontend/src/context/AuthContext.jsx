@@ -21,7 +21,7 @@ useEffect(() => {
         localStorage.removeItem("access_token");
         localStorage.removeItem("refresh_token");
       } else {
-        setUtilisateur({ username: payload.username, role: payload.role });
+        setUtilisateur({ email: payload.email, username: payload.username, role: payload.role });
       }
     } catch {
       localStorage.removeItem("access_token");
@@ -65,7 +65,7 @@ useEffect(() => {
   localStorage.setItem("refresh_token", refresh);
 
   const payload = jwtDecode(access);
-  const utilisateurConnecte = { username: payload.username, role: payload.role };
+  const utilisateurConnecte = { email: payload.email, username: payload.username, role: payload.role };
   setUtilisateur(utilisateurConnecte);
 
   return utilisateurConnecte;

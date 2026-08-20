@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 
-export default function FormulaireConnexion({ onSuccess, onSwitchToInscription }) {
+export default function FormulaireConnexion({ onSuccess, onSwitchToInscription, desactiverRedirection = false }) {
   const { seConnecter, chargement, erreur } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -19,7 +19,9 @@ export default function FormulaireConnexion({ onSuccess, onSwitchToInscription }
   try {
     const utilisateurConnecte = await seConnecter(email, password);
     onSuccess?.();
-    redirigerSelonRole(utilisateurConnecte.role);
+    if (!desactiverRedirection) {
+  redirigerSelonRole(utilisateurConnecte.role);
+}
   } catch {
     // géré via `erreur`
   }

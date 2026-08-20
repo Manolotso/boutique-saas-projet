@@ -11,7 +11,7 @@ const ETAPES = {
   SUCCES: 4,
 };
 
-export default function FormulaireInscription({ onSuccess, onSwitchToConnexion }) {
+export default function FormulaireInscription({ onSuccess, onSwitchToConnexion, desactiverRedirection = false }) {
   const { seConnecterAvecTokens } = useAuth();
 
   const [etape, setEtape] = useState(ETAPES.EMAIL_ROLE);
@@ -78,8 +78,10 @@ export default function FormulaireInscription({ onSuccess, onSwitchToConnexion }
   try {
     const response = await comptesApi.finaliser(email, code, username, password, nomBoutique);
     const utilisateurConnecte = seConnecterAvecTokens(response.data);
-    onSuccess?.();
-    redirigerSelonRole(utilisateurConnecte.role);
+onSuccess?.();
+if (!desactiverRedirection) {
+  redirigerSelonRole(utilisateurConnecte.role);
+}
   } catch (err) {
     setErreur(err.response?.data?.detail || "Impossible de créer le compte.");
   } finally {

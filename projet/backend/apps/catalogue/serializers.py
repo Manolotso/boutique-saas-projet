@@ -27,12 +27,14 @@ class ProduitSerializer(serializers.ModelSerializer):
     variantes = VarianteProduitSerializer(many=True, read_only=True)
     prix_actuel = serializers.ReadOnlyField()
     en_stock = serializers.ReadOnlyField()
+    promo_active = serializers.ReadOnlyField()
+    categorie_nom = serializers.CharField(source="categorie.nom", read_only=True)
 
     class Meta:
         model = Produit
         fields = [
-            "id", "categorie", "nom", "slug", "description", "marque", "tags",
-            "prix", "prix_promo", "prix_achat", "promo_debut", "promo_fin", "prix_actuel",
+            "id", "categorie", "categorie_nom", "nom", "slug", "description", "marque", "tags",
+            "prix", "prix_promo", "prix_achat", "promo_debut", "promo_fin", "prix_actuel", "promo_active",
             "sku", "stock", "gestion_stock", "seuil_alerte_stock", "poids", "en_stock",
             "meta_description",
             "note_moyenne", "nombre_avis", "nombre_ventes", "est_mis_en_avant",
@@ -47,3 +49,23 @@ class ProduitSerializer(serializers.ModelSerializer):
 # API Gemini pour les complétions de texte
 class GenerateDescriptionSerializer(serializers.Serializer):
     nom = serializers.CharField(max_length=255, allow_blank=False)
+
+
+class ProduitPublicSerializer(serializers.ModelSerializer):
+    images = ImageProduitSerializer(many=True, read_only=True)
+    variantes = VarianteProduitSerializer(many=True, read_only=True)
+    prix_actuel = serializers.ReadOnlyField()
+    en_stock = serializers.ReadOnlyField()
+    categorie_nom = serializers.CharField(source="categorie.nom", read_only=True)
+
+    class Meta:
+        model = Produit
+        fields = [
+            "id", "nom", "slug", "description", "marque", "tags",
+            "prix", "prix_promo", "prix_actuel",
+            "stock", "en_stock",
+            "note_moyenne", "nombre_avis", "nombre_ventes", "est_mis_en_avant",
+            "categorie", "categorie_nom",
+            "images", "variantes",
+            "date_publication",
+        ]

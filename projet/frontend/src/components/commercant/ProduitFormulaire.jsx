@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { X, ChevronRight, ChevronLeft, TrendingUp, TrendingDown } from "lucide-react";
 import { catalogueApi } from "../../api/catalogue";
 import apiClient from "../../api/client";
@@ -22,7 +22,7 @@ const OPTIONS_AVANCEES = {
   galerie: { titre: "Galerie", description: "Photos du produit" },
 };
 
-export default function ProduitFormulaire({ produit, categories = [], onSauvegarde }) {
+export default function ProduitFormulaire({ produit, categories = [], onSauvegarde, onModificationChange }) {
   const estEdition = Boolean(produit);
 
   // --- Navigation interne : 'principal' | 'menu' | 'tarification' | 'identite' | 'stock' | 'seo' | 'galerie' | 'galerie-post-creation' ---
@@ -69,6 +69,42 @@ export default function ProduitFormulaire({ produit, categories = [], onSauvegar
   // pour pouvoir afficher l'étape "Ajoute des photos" avec un id valide.
   const [produitCree, setProduitCree] = useState(null);
   const [imagesAjoutees, setImagesAjoutees] = useState([]);
+
+  // --- Suivi des modifications non enregistrées ---
+  const [estModifie, setEstModifie] = useState(false);
+  const premierRendu = useRef(true);
+
+  // Se déclenche à chaque changement d'un champ de données (pas la navigation entre vues)
+  useEffect(() => {
+    if (premierRendu.current) {
+      premierRendu.current = false;
+      return;
+    }
+    setEstModifie(true);
+  }, [
+    nom, description, prix, stock,
+    categorie, marque, tags,
+    prixPromo, promoDebut, promoFin, prixAchat,
+    sku, gestionStock, seuilAlerteStock, poids,
+    statut, estMisEnAvant,
+    metaDescription,
+  ]);
+
+  // Notifie le parent, qui contrôle la fermeture de la modal (bouton X, backdrop)
+  useEffect(() => {
+    onModificationChange?.(estModifie);
+  }, [estModifie, onModificationChange]);
+
+  // Avertit aussi en cas de fermeture d'onglet / rafraîchissement du navigateur
+  useEffect(() => {
+    const avertirFermeture = (e) => {
+      if (!estModifie) return;
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", avertirFermeture);
+    return () => window.removeEventListener("beforeunload", avertirFermeture);
+  }, [estModifie]);
 
   // Indique si une option contient déjà des données, pour afficher un repère visuel dans le menu
   const optionEstRemplie = {
@@ -133,9 +169,11 @@ export default function ProduitFormulaire({ produit, categories = [], onSauvegar
         : await catalogueApi.creerProduit(donnees);
 
       if (estEdition) {
+        setEstModifie(false);
         onSauvegarde(response.data);
       } else {
         // Le produit existe maintenant en base (il a un id) : on peut proposer la galerie.
+        setEstModifie(false);
         setProduitCree(response.data);
         setVue("galerie-post-creation");
       }
@@ -227,7 +265,7 @@ const genererDescriptionIA = async () => {
                       onClick={() => setStatut(option.valeur)}
                       className={`rounded-full px-4 py-1.5 text-[13px] font-medium transition-colors duration-200 ${
                         statut === option.valeur
-                          ? "bg-[#12181B] text-[#F6F7F2]"
+                          ? "bg-[var(--boutique-primary,#12181B)] text-[#F6F7F2]"
                           : "bg-white border border-[#12181B]/10 text-[#12181B]/60 hover:text-[#12181B]"
                       }`}
                     >
@@ -254,7 +292,7 @@ const genererDescriptionIA = async () => {
                   aria-checked={estMisEnAvant}
                   onClick={() => setEstMisEnAvant((v) => !v)}
                   className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 ${
-                    estMisEnAvant ? "bg-[#0E7C66]" : "bg-[#12181B]/15"
+                    estMisEnAvant ? "bg-[var(--boutique-accent,#0E7C66)]" : "bg-[#12181B]/15"
                   }`}
                 >
                   <span
@@ -602,7 +640,7 @@ const genererDescriptionIA = async () => {
                 aria-checked={gestionStock}
                 onClick={() => setGestionStock((v) => !v)}
                 className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 ${
-                  gestionStock ? "bg-[#0E7C66]" : "bg-[#12181B]/15"
+                  gestionStock ? "bg-[var(--boutique-accent,#0E7C66)]" : "bg-[#12181B]/15"
                 }`}
               >
                 <span
@@ -689,7 +727,7 @@ const genererDescriptionIA = async () => {
           <button
             type="button"
             onClick={() => onSauvegarde({ ...produitCree, images: imagesAjoutees })}
-            className="w-full rounded-full bg-[#12181B] text-[#F6F7F2] text-[14px] font-medium px-5 py-2.5 hover:bg-[var(--boutique-accent,#0E7C66)] transition-colors duration-300"
+            className="w-full rounded-full bg-[var(--boutique-primary,#12181B)] text-[#F6F7F2] text-[14px] font-medium px-5 py-2.5 hover:bg-[var(--boutique-accent,#0E7C66)] transition-colors duration-300"
           >
             {imagesAjoutees.length > 0 ? "Terminé" : "Passer pour l'instant"}
           </button>
@@ -697,7 +735,7 @@ const genererDescriptionIA = async () => {
           <button
             type="submit"
             disabled={chargement}
-            className="w-full rounded-full bg-[#12181B] text-[#F6F7F2] text-[14px] font-medium px-5 py-2.5 hover:bg-[var(--boutique-accent,#0E7C66)] transition-colors duration-300 disabled:opacity-50"
+            className="w-full rounded-full bg-[var(--boutique-primary,#12181B)] text-[#F6F7F2] text-[14px] font-medium px-5 py-2.5 hover:bg-[var(--boutique-accent,#0E7C66)] transition-colors duration-300 disabled:opacity-50"
           >
             {chargement ? "Enregistrement..." : estEdition ? "Enregistrer les modifications" : "Créer le produit"}
           </button>

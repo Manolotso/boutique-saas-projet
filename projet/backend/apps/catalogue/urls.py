@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import CategorieViewSet, ProduitViewSet, ProduitsPublicsView, GenerateDescriptionView, ImageProduitListCreateView, ImageProduitDetailView, DefinirImagePrincipaleView
+from .views import CategorieViewSet, ProduitViewSet, ProduitsPublicsView, GenerateDescriptionView, ImageProduitListCreateView, ImageProduitDetailView, DefinirImagePrincipaleView, GenerateDescriptionCategorieView, ProduitPublicDetailView
 
 
 router = DefaultRouter()
@@ -16,4 +16,8 @@ urlpatterns = [
     path("produits/<uuid:produit_id>/images/", ImageProduitListCreateView.as_view(), name="produit-images"),
     path("images/<uuid:image_id>/", ImageProduitDetailView.as_view(), name="image-detail"),
     path("images/<uuid:image_id>/definir-principale/", DefinirImagePrincipaleView.as_view(), name="image-principale"),
+    path("generate-description/", GenerateDescriptionView.as_view(), name="generate_description"),
+    path("generate-description-categorie/", GenerateDescriptionCategorieView.as_view(), name="generate_description_categorie"),
+    path("boutiques/<slug:sous_domaine>/produits/", ProduitsPublicsView.as_view()),
+    path("boutiques/<slug:sous_domaine>/produits/<slug:slug>/", ProduitPublicDetailView.as_view()),
 ]

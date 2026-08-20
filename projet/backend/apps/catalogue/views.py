@@ -17,6 +17,8 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from django.shortcuts import get_object_or_404
 from .models import ImageProduit
 from .serializers import ImageProduitSerializer
+from django_filters.rest_framework import DjangoFilterBackend
+from .serializers import ProduitPublicSerializer
 
 from .serializers import GenerateDescriptionSerializer
 
@@ -65,16 +67,18 @@ class ProduitViewSet(viewsets.ModelViewSet):
 class ProduitsPublicsView(generics.ListAPIView):
     """Vitrine publique : liste des produits publiés d'une boutique donnée."""
 
-    serializer_class = ProduitSerializer
+    serializer_class = ProduitPublicSerializer
     permission_classes = [AllowAny]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["categorie"]
 
     def get_queryset(self):
         sous_domaine = self.kwargs["sous_domaine"]
         return Produit.objects.filter(
             tenant__sous_domaine=sous_domaine, statut="publie", est_supprime=False
-        )
+        ).select_related("categorie").prefetch_related("images", "variantes")
 
-# API Gemini pour les complétions de texte
+# API Gemini pour les complétions description de produit
 class DescriptionGenerationThrottle(UserRateThrottle):
     scope = "description_generation"
 
@@ -170,3 +174,51 @@ class DefinirImagePrincipaleView(APIView):
         image.est_principale = True
         image.save(update_fields=["est_principale"])
         return Response(ImageProduitSerializer(image).data, status=status.HTTP_200_OK)
+
+### API Gemini pour la génération de description de catégorie
+class GenerateDescriptionCategorieView(APIView):
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [DescriptionGenerationThrottle]
+
+    def post(self, request):
+        serializer = GenerateDescriptionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        nom = serializer.validated_data["nom"]
+
+        try:
+            client = genai.Client(api_key=settings.GEMINI_API_KEY)
+
+            response = client.models.generate_content(
+                model="gemini-flash-latest",
+                contents=(
+                    f"Rédige une courte description (2-3 phrases, en français) "
+                    f"pour cette catégorie de produits d'une boutique en ligne : \"{nom}\". "
+                    f"La description doit donner envie de parcourir les produits de cette catégorie. "
+                    f"Réponds uniquement avec la description, sans préambule."
+                ),
+            )
+
+            return Response(
+                {"description": response.text}, status=status.HTTP_200_OK
+            )
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            return Response(
+                {"error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class ProduitPublicDetailView(generics.RetrieveAPIView):
+    serializer_class = ProduitPublicSerializer
+    permission_classes = [AllowAny]
+    lookup_field = "slug"
+    lookup_url_kwarg = "slug"
+
+    def get_queryset(self):
+        sous_domaine = self.kwargs["sous_domaine"]
+        return Produit.objects.filter(
+            tenant__sous_domaine=sous_domaine, statut="publie", est_supprime=False
+        )
