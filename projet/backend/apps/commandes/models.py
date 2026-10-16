@@ -4,6 +4,8 @@ from django.db import models
 from django.utils import timezone
 from apps.tenants.models import Tenant
 from apps.catalogue.models import Produit, VarianteProduit
+from django.core.mail import send_mail
+from django.conf import settings
 
 
 class CompteurCommande(models.Model):
@@ -85,7 +87,7 @@ class Commande(models.Model):
         return f"CMD-{self.tenant.sous_domaine.upper()}-{annee}-{compteur.dernier_numero:05d}"
 
     def changer_statut(self, nouveau_statut, commentaire=""):
-        """Change le statut et trace automatiquement l'historique (Groupe B)."""
+        """Change le statut, trace l'historique, et notifie par email si pertinent."""
         ancien_statut = self.statut
         self.statut = nouveau_statut
         if nouveau_statut == "annulee":
@@ -93,6 +95,54 @@ class Commande(models.Model):
         self.save()
         HistoriqueStatutCommande.objects.create(
             commande=self, statut=nouveau_statut, statut_precedent=ancien_statut, commentaire=commentaire
+        )
+        self._notifier_changement_statut(nouveau_statut)
+
+    def _notifier_changement_statut(self, statut):
+        """Envoie les emails pertinents. Ne doit jamais faire planter le changement de statut lui-même,
+        même si l'envoi échoue (ex: service email temporairement indisponible)."""
+        try:
+            if statut == "payee":
+                self._envoyer_email(
+                    self.client.email,
+                    "Paiement confirmé",
+                    f"Ta commande {self.numero_commande} ({self.montant_total} Ar) est payée. "
+                    f"{self.tenant.nom_boutique} va la préparer.",
+                )
+                self._envoyer_email(
+                    self.tenant.commercant.email,
+                    f"Nouvelle commande payée — {self.numero_commande}",
+                    f"Tu as reçu une nouvelle commande payée : {self.numero_commande}, "
+                    f"montant {self.montant_total} Ar. Connecte-toi à ton dashboard pour la traiter.",
+                )
+            elif statut == "expediee":
+                self._envoyer_email(
+                    self.client.email,
+                    "Ta commande est en route",
+                    f"Ta commande {self.numero_commande} a été expédiée par {self.tenant.nom_boutique}.",
+                )
+            elif statut == "livree":
+                self._envoyer_email(
+                    self.client.email,
+                    "Commande livrée",
+                    f"Ta commande {self.numero_commande} a été livrée. Merci pour ta confiance !",
+                )
+            elif statut == "annulee":
+                message = f"Ta commande {self.numero_commande} a été annulée."
+                if self.motif_annulation:
+                    message += f"\nMotif : {self.motif_annulation}"
+                self._envoyer_email(self.client.email, "Commande annulée", message)
+        except Exception:
+            # On ne relance jamais l'exception ici : un email non envoyé ne doit pas annuler
+            # le changement de statut, déjà enregistré en base à ce stade.
+            pass
+
+    def _envoyer_email(self, destinataire, sujet, message):
+        send_mail(
+            subject=sujet,
+            message=message,
+            from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
+            recipient_list=[destinataire],
         )
 
     @property

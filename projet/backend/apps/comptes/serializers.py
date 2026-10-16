@@ -37,3 +37,15 @@ class CustomUserSerializer(serializers.ModelSerializer):
             instance.set_password(password)
         instance.save()
         return instance
+
+
+class MonProfilSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomUser
+        fields = ["id", "username", "email", "role", "date_joined"]
+        read_only_fields = ["id", "email", "role", "date_joined"]
+
+
+class ChangerMotDePasseSerializer(serializers.Serializer):
+    ancien_mot_de_passe = serializers.CharField(write_only=True)
+    nouveau_mot_de_passe = serializers.CharField(write_only=True, min_length=8)

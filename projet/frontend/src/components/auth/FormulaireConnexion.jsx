@@ -11,7 +11,7 @@ export default function FormulaireConnexion({ onSuccess, onSwitchToInscription, 
   const redirigerSelonRole = (role) => {
   if (role === "commercant") navigate("/commercant");
   else if (role === "superadmin") navigate("/admin");
-  else navigate("/");
+  else navigate("/mon-compte");
 };
 
   const handleSubmit = async (e) => {

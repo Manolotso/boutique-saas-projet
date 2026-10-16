@@ -12,4 +12,12 @@ export const comptesApi = {
   listerUtilisateursAdmin: () => apiClient.get("/api/comptes/utilisateurs/"),
   modifierUtilisateurAdmin: (id, donnees) => apiClient.patch(`/api/comptes/utilisateurs/${id}/`, donnees),
   supprimerUtilisateurAdmin: (id) => apiClient.delete(`/api/comptes/utilisateurs/${id}/`),
+
+  obtenirMonProfil: () => apiClient.get("/api/comptes/mon-profil/"),
+  modifierMonProfil: (donnees) => apiClient.patch("/api/comptes/mon-profil/", donnees),
+  changerMotDePasse: (ancienMotDePasse, nouveauMotDePasse) =>
+    apiClient.post("/api/comptes/mon-profil/changer-mot-de-passe/", {
+      ancien_mot_de_passe: ancienMotDePasse,
+      nouveau_mot_de_passe: nouveauMotDePasse,
+    }),
 };

@@ -30,7 +30,7 @@ export default function FormulaireInscription({ onSuccess, onSwitchToConnexion, 
   const redirigerSelonRole = (role) => {
   if (role === "commercant") navigate("/commercant");
   else if (role === "superadmin") navigate("/admin");
-  else navigate("/");
+  else navigate("/mon-compte");
 };
 
   // Étape 1 → envoie le code

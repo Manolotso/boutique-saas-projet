@@ -17,11 +17,14 @@ import TunnelCommande from "./pages/boutique/TunnelCommande";
 import Confirmation from "./pages/boutique/Confirmation";
 import Suivi from "./pages/boutique/Suivi";
 import Commandes from "./pages/commercant/Commandes";
-import MesCommandes from "./pages/MesCommandes";
 import Paiement from "./pages/boutique/Paiement";
 import AdminLayout from "./layouts/AdminLayout";
 import Boutiques from "./pages/admin/Boutiques";
 import Utilisateurs from "./pages/admin/Utilisateurs";
+import ClientLayout from "./layouts/ClientLayout";
+import Profil from "./pages/client/Profil";
+import MesCommandesTab from "./pages/client/MesCommandesTab";
+import Abonnement from "./pages/commercant/Abonnement";
 
 export default function App() {
   return (
@@ -43,6 +46,7 @@ export default function App() {
           <Route path="/commercant/parametres" element={<Parametres />} />
           <Route path="/commercant/categories" element={<Categories />} />
           <Route path="/commercant/commandes" element={<Commandes />} />
+          <Route path="/commercant/abonnement" element={<Abonnement />} />
         </Route>
       </Route>
 
@@ -68,14 +72,16 @@ export default function App() {
           <Route path="commande/:numeroCommande/paiement" element={<Paiement />} />
       </Route>
 
-        <Route
-  path="/mes-commandes"
-  element={
-    <RouteProtegee rolesAutorises={["client", "commercant", "superadmin"]}>
-      <MesCommandes />
-    </RouteProtegee>
-  }
-/>
+      <Route
+          element={
+          <RouteProtegee rolesAutorises={["client", "commercant", "superadmin"]}>
+          <ClientLayout />
+          </RouteProtegee>
+        }
+      >
+          <Route path="/mon-compte" element={<Profil />} />
+          <Route path="/mon-compte/commandes" element={<MesCommandesTab />} />
+      </Route>
       
     </Routes>
   );

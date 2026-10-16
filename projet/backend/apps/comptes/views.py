@@ -1,15 +1,21 @@
 from django.core.mail import send_mail
 from rest_framework.views import APIView
-from rest_framework import viewsets
+from rest_framework import viewsets, generics
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
-from .models import CustomUser, CodeVerification
+from rest_framework.permissions import AllowAny, IsAuthenticated
+from django.contrib.auth import update_session_auth_hash
 from django.utils.text import slugify
 from apps.tenants.models import Tenant
+from apps.abonnements.models import Plan, Abonnement
 from rest_framework_simplejwt.views import TokenObtainPairView
-from .serializers import CustomTokenObtainPairSerializer
+from .models import CustomUser, CodeVerification
+from .serializers import (
+    CustomTokenObtainPairSerializer,
+    CustomUserSerializer,
+    MonProfilSerializer,
+    ChangerMotDePasseSerializer,
+)
 from .permissions import EstSuperAdmin
-from .serializers import CustomUserSerializer
 
 
 
@@ -106,11 +112,14 @@ class FinaliserInscriptionView(APIView):
 
         if verification.role == CustomUser.Role.COMMERCANT:
             sous_domaine = self._generer_sous_domaine_unique(nom_boutique)
-            Tenant.objects.create(
+            tenant = Tenant.objects.create(
                 commercant=user,
                 nom_boutique=nom_boutique,
                 sous_domaine=sous_domaine,
             )
+            plan_essai = Plan.objects.filter(code="essai").first()
+            if plan_essai:
+                Abonnement.objects.create(tenant=tenant, plan=plan_essai, statut="essai")
 
         verification.delete()
 
@@ -134,3 +143,28 @@ class CustomUserViewSet(viewsets.ModelViewSet):
     queryset = CustomUser.objects.all().order_by("-date_joined")
     serializer_class = CustomUserSerializer
     permission_classes = [EstSuperAdmin]
+
+
+class MonProfilView(generics.RetrieveUpdateAPIView):
+    serializer_class = MonProfilSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        return self.request.user
+
+
+class ChangerMotDePasseView(generics.GenericAPIView):
+    serializer_class = ChangerMotDePasseSerializer
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = request.user
+        if not user.check_password(serializer.validated_data["ancien_mot_de_passe"]):
+            return Response({"detail": "Mot de passe actuel incorrect."}, status=400)
+
+        user.set_password(serializer.validated_data["nouveau_mot_de_passe"])
+        user.save()
+        return Response({"detail": "Mot de passe modifié."})
