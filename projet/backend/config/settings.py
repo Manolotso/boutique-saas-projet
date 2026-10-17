@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     "apps.paiements",
     "apps.abonnements",
     "apps.comptes",
+    "apps.recherche",
 ]
 
 AUTH_USER_MODEL = "comptes.CustomUser"
@@ -134,3 +135,22 @@ DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL")
 
 ## API GEMINI pour les complétions de texte
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+
+## MVola (paiement Mobile Money) — environnement de test par défaut.
+## Les identifiants viennent de backend/.env, jamais du code.
+MVOLA_ENV = os.getenv("MVOLA_ENV", "sandbox")
+MVOLA_BASE_URL = os.getenv(
+    "MVOLA_BASE_URL",
+    "https://devapi.mvola.mg" if MVOLA_ENV == "sandbox" else "https://api.mvola.mg",
+)
+MVOLA_CONSUMER_KEY = os.getenv("MVOLA_CONSUMER_KEY")
+MVOLA_CONSUMER_SECRET = os.getenv("MVOLA_CONSUMER_SECRET")
+MVOLA_PARTNER_NAME = os.getenv("MVOLA_PARTNER_NAME", "")
+MVOLA_PARTNER_MSISDN = os.getenv("MVOLA_PARTNER_MSISDN", "0343500004")
+MVOLA_SCOPE = os.getenv("MVOLA_SCOPE", "EXT_INT_MVOLA_SCOPE")
+
+
+# --- Recherche sémantique ---
+EMBEDDING_MODEL_NAME = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+EMBEDDING_DIMENSIONS = 384  # doit correspondre au modèle ci-dessus
+EMBEDDING_CACHE_DIR = BASE_DIR / ".model_cache"

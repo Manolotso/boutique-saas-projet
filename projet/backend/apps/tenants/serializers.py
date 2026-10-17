@@ -3,6 +3,11 @@ from .models import Tenant
 
 
 class TenantSerializer(serializers.ModelSerializer):
+    # Lat/lng en FloatField : Leaflet envoie des coordonnées avec beaucoup de décimales,
+    # un DecimalField(decimal_places=6) les refuserait. On arrondit à 6 décimales (~10 cm).
+    boutique_lat = serializers.FloatField(required=False, allow_null=True, min_value=-90, max_value=90)
+    boutique_lng = serializers.FloatField(required=False, allow_null=True, min_value=-180, max_value=180)
+
     class Meta:
         model = Tenant
         fields = [
@@ -14,6 +19,8 @@ class TenantSerializer(serializers.ModelSerializer):
             "horaires_ouverture", "langue_preferee", "moyens_paiement_actifs",
             "note_moyenne", "nombre_avis", "nombre_ventes",
             "etape_onboarding", "date_creation", "date_modification",
+            "livraison_active", "boutique_lat", "boutique_lng",
+            "frais_livraison_base", "frais_par_km", "rayon_max_km", "seuil_livraison_gratuite",
         ]
         read_only_fields = [
             "id", "sous_domaine", "statut",
@@ -21,10 +28,41 @@ class TenantSerializer(serializers.ModelSerializer):
             "note_moyenne", "nombre_avis", "nombre_ventes",
             "date_creation", "date_modification",
         ]
+        extra_kwargs = {
+            "frais_livraison_base": {"min_value": 0},
+            "frais_par_km": {"min_value": 0},
+            "rayon_max_km": {"min_value": 0},
+            "seuil_livraison_gratuite": {"min_value": 0},
+        }
+
+    def validate_boutique_lat(self, valeur):
+        return None if valeur is None else round(valeur, 6)
+
+    def validate_boutique_lng(self, valeur):
+        return None if valeur is None else round(valeur, 6)
+
+    def validate(self, attrs):
+        """On ne peut pas activer la livraison sans avoir placé la boutique sur la carte."""
+
+        def valeur(champ):
+            if champ in attrs:
+                return attrs[champ]
+            return getattr(self.instance, champ, None) if self.instance else None
+
+        if valeur("livraison_active") and (valeur("boutique_lat") is None or valeur("boutique_lng") is None):
+            raise serializers.ValidationError(
+                {"livraison_active": "Place ta boutique sur la carte avant d'activer la livraison."}
+            )
+        return attrs
 
 
 class TenantPublicSerializer(serializers.ModelSerializer):
     """Version publique, sans les champs sensibles (NIF/STAT, etc.), pour la vitrine."""
+
+    # Nombres (et non chaînes) pour pouvoir les donner directement à Leaflet.
+    boutique_lat = serializers.FloatField(read_only=True)
+    boutique_lng = serializers.FloatField(read_only=True)
+    rayon_max_km = serializers.FloatField(read_only=True)
 
     class Meta:
         model = Tenant
@@ -36,6 +74,7 @@ class TenantPublicSerializer(serializers.ModelSerializer):
             "telephone", "whatsapp", "adresse", "ville", "reseaux_sociaux",
             "horaires_ouverture", "langue_preferee", "moyens_paiement_actifs",
             "note_moyenne", "nombre_avis", "nombre_ventes",
+            "livraison_active", "boutique_lat", "boutique_lng", "rayon_max_km",
         ]
 
 
@@ -58,3 +97,13 @@ class TenantAdminSerializer(serializers.ModelSerializer):
             "date_creation",
         ]
         read_only_fields = fields
+
+
+class EstimationLivraisonSerializer(serializers.Serializer):
+    """Entrée de l'endpoint public d'estimation : le point cliqué sur la carte."""
+
+    lat = serializers.FloatField(min_value=-90, max_value=90)
+    lng = serializers.FloatField(min_value=-180, max_value=180)
+    # Optionnel : permet d'afficher « livraison offerte » dès le panier. Le vrai calcul
+    # est refait côté serveur à la création de la commande.
+    montant_sous_total = serializers.DecimalField(max_digits=12, decimal_places=2, required=False)

@@ -102,6 +102,15 @@ class Tenant(models.Model):
     est_supprime = models.BooleanField(default=False)
     date_suppression = models.DateTimeField(null=True, blank=True)
 
+    # --- Groupe G : Livraison (tarif au km depuis la position de la boutique) ---
+    livraison_active = models.BooleanField(default=False)
+    boutique_lat = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    boutique_lng = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    frais_livraison_base = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    frais_par_km = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    rayon_max_km = models.DecimalField(max_digits=6, decimal_places=2, default=10)
+    seuil_livraison_gratuite = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+
     class Meta:
         verbose_name = "Boutique (tenant)"
         verbose_name_plural = "Boutiques (tenants)"

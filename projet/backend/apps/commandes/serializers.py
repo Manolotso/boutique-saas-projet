@@ -1,6 +1,8 @@
+from decimal import Decimal
 from rest_framework import serializers
 from django.db import transaction
 from apps.catalogue.models import Produit, VarianteProduit
+from apps.tenants.livraison import estimer_livraison
 from .models import Commande, LigneCommande, HistoriqueStatutCommande
 
 
@@ -33,6 +35,7 @@ class CommandeSerializer(serializers.ModelSerializer):
             "montant_sous_total", "montant_remise", "frais_livraison", "montant_total",
             "mode_livraison", "nom_destinataire", "telephone_destinataire",
             "zone_livraison", "adresse_complete", "instructions_livraison",
+            "livraison_lat", "livraison_lng", "distance_km",
             "note_client", "note_interne",
             "motif_annulation", "annulee_le",
             "date_commande", "date_modification",
@@ -58,17 +61,41 @@ class CommandeCreationSerializer(serializers.Serializer):
     adresse_complete = serializers.CharField(required=False, allow_blank=True)
     instructions_livraison = serializers.CharField(required=False, allow_blank=True)
     note_client = serializers.CharField(required=False, allow_blank=True)
-    frais_livraison = serializers.DecimalField(max_digits=10, decimal_places=2, required=False, default=0)
+    # Point choisi sur la carte. Le frais de livraison n'est PLUS accepté depuis le client :
+    # il est toujours recalculé ici, côté serveur, à partir de ces coordonnées.
+    livraison_lat = serializers.FloatField(required=False, allow_null=True, min_value=-90, max_value=90)
+    livraison_lng = serializers.FloatField(required=False, allow_null=True, min_value=-180, max_value=180)
 
     def validate_lignes(self, valeur):
         if not valeur:
             raise serializers.ValidationError("Le panier est vide.")
         return valeur
 
+    def validate(self, attrs):
+        """Livraison à domicile sur une boutique qui a activé la livraison : le point sur la carte
+        est obligatoire et doit être dans la zone de livraison."""
+        tenant = self.context["tenant"]
+        if attrs["mode_livraison"] == "domicile" and tenant.livraison_active:
+            lat, lng = attrs.get("livraison_lat"), attrs.get("livraison_lng")
+            if lat is None or lng is None:
+                raise serializers.ValidationError(
+                    {"livraison_lat": "Choisis ton emplacement de livraison sur la carte."}
+                )
+            resultat = estimer_livraison(tenant, lat, lng)
+            if not resultat["livrable"]:
+                if resultat["raison"] == "hors_zone":
+                    message = "Cet emplacement est en dehors de la zone de livraison de la boutique."
+                else:
+                    message = "La livraison n'est pas disponible pour le moment."
+                raise serializers.ValidationError({"livraison_lat": message})
+        return attrs
+
     def create(self, validated_data):
         tenant = self.context["tenant"]
         client = self.context["client"]
         lignes_donnees = validated_data.pop("lignes")
+        livraison_lat = validated_data.pop("livraison_lat", None)
+        livraison_lng = validated_data.pop("livraison_lng", None)
 
         with transaction.atomic():
             lignes_a_creer = []
@@ -120,7 +147,18 @@ class CommandeCreationSerializer(serializers.Serializer):
                 produit.nombre_ventes += quantite
                 produit.save(update_fields=["nombre_ventes"])
 
-            frais_livraison = validated_data.pop("frais_livraison", 0) or 0
+            # Frais de livraison : toujours calculés ici, jamais lus depuis la requête.
+            frais_livraison = Decimal("0")
+            distance_km = None
+            if validated_data["mode_livraison"] == "domicile" and tenant.livraison_active:
+                resultat = estimer_livraison(tenant, livraison_lat, livraison_lng, montant_sous_total)
+                frais_livraison = resultat["frais"]
+                distance_km = resultat["distance_km"]
+                livraison_lat = Decimal(str(round(livraison_lat, 6)))
+                livraison_lng = Decimal(str(round(livraison_lng, 6)))
+            else:
+                livraison_lat = livraison_lng = None
+
             montant_total = montant_sous_total + frais_livraison
 
             commande = Commande.objects.create(
@@ -129,6 +167,9 @@ class CommandeCreationSerializer(serializers.Serializer):
                 montant_sous_total=montant_sous_total,
                 frais_livraison=frais_livraison,
                 montant_total=montant_total,
+                livraison_lat=livraison_lat,
+                livraison_lng=livraison_lng,
+                distance_km=distance_km,
                 **validated_data,
             )
 

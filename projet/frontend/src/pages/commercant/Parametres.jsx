@@ -3,11 +3,13 @@ import { useBoutique } from "../../context/BoutiqueContext";
 import InfosTab from "../../components/commercant/parametres/InfosTab";
 import BrandingTab from "../../components/commercant/parametres/BrandingTab";
 import PaiementsTab from "../../components/commercant/parametres/PaiementsTab";
+import LivraisonTab from "../../components/commercant/parametres/LivraisonTab";
 
 const ONGLETS = [
   { id: "infos", label: "Informations" },
   { id: "branding", label: "Personnalisation" },
   { id: "paiements", label: "Paiements" },
+  { id: "livraison", label: "Livraison" },
 ];
 
 export default function Parametres() {
@@ -39,6 +41,7 @@ export default function Parametres() {
       {ongletActif === "infos" && <InfosTab boutique={boutique} onEnregistre={setBoutique} />}
       {ongletActif === "branding" && <BrandingTab boutique={boutique} onEnregistre={setBoutique} />}
       {ongletActif === "paiements" && <PaiementsTab boutique={boutique} onEnregistre={setBoutique} />}
+      {ongletActif === "livraison" && <LivraisonTab boutique={boutique} onEnregistre={setBoutique} />}
     </div>
   );
 }

@@ -16,3 +16,5 @@ frontend/.env
 # Divers
 .DS_Store
 *.log
+
+backend/.model_cache/

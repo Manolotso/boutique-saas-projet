@@ -51,6 +51,11 @@ class Paiement(models.Model):
     date_remboursement = models.DateTimeField(null=True, blank=True)
     motif_remboursement = models.CharField(max_length=255, blank=True)
 
+    # --- Groupe G : paiement via l'API d'un opérateur (ex. MVola) ---
+    telephone_client = models.CharField(max_length=20, blank=True)
+    # Identifiant de la transaction côté opérateur (MVola : serverCorrelationId), pour interroger son état.
+    identifiant_operateur = models.CharField(max_length=100, blank=True, db_index=True)
+
     date_transaction = models.DateTimeField(auto_now_add=True)
     date_modification = models.DateTimeField(auto_now=True)
 

@@ -58,6 +58,11 @@ class Commande(models.Model):
     adresse_complete = models.TextField(blank=True)
     instructions_livraison = models.TextField(blank=True)
 
+    # --- Groupe C bis : Point de livraison choisi sur la carte (figé au moment de la commande) ---
+    livraison_lat = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    livraison_lng = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    distance_km = models.DecimalField(max_digits=6, decimal_places=2, null=True, blank=True)
+
     # --- Groupe F : Communication ---
     note_client = models.TextField(blank=True)
     note_interne = models.TextField(blank=True)

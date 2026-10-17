@@ -34,22 +34,26 @@ export default function PaiementsTab({ boutique, onEnregistre }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5 max-w-lg">
-      <div className="space-y-2.5">
-        {OPERATEURS.map(([valeur, label]) => (
-          <label key={valeur} className="flex items-center gap-3 rounded-lg border border-[#12181B]/10 px-4 py-3 cursor-pointer hover:bg-[#12181B]/[0.02]">
-            <input type="checkbox" checked={actifs.includes(valeur)} onChange={() => toggle(valeur)} className="h-4 w-4" />
-            <span className="text-[14px] text-[#12181B]">{label}</span>
-          </label>
-        ))}
-      </div>
-      <button
-        type="submit"
-        disabled={chargement}
-        className="rounded-full bg-[var(--boutique-primary,#12181B)] text-[#F6F7F2] text-[14px] font-medium px-5 py-2.5 hover:bg-[var(--boutique-accent,#0E7C66)] transition-colors disabled:opacity-50"
-      >
-        {chargement ? "Enregistrement..." : "Enregistrer"}
-      </button>
-    </form>
-  );
+  <form onSubmit={handleSubmit} className="w-full space-y-6">
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      {OPERATEURS.map(([valeur, label]) => (
+        <label
+          key={valeur}
+          className="flex items-center gap-3 rounded-lg border border-[#12181B]/10 px-4 py-3 cursor-pointer hover:bg-[#12181B]/[0.02]"
+        >
+          <input type="checkbox" checked={actifs.includes(valeur)} onChange={() => toggle(valeur)} className="h-4 w-4" />
+          <span className="text-[14px] text-[#12181B]">{label}</span>
+        </label>
+      ))}
+    </div>
+
+    <button
+      type="submit"
+      disabled={chargement}
+      className="rounded-full bg-[var(--boutique-primary,#12181B)] text-[#F6F7F2] text-[14px] font-medium px-5 py-2.5 hover:bg-[var(--boutique-accent,#0E7C66)] transition-colors disabled:opacity-50"
+    >
+      {chargement ? "Enregistrement..." : "Enregistrer"}
+    </button>
+  </form>
+);
 }
