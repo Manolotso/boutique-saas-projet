@@ -74,6 +74,14 @@ class Commande(models.Model):
     date_commande = models.DateTimeField(auto_now_add=True)
     date_modification = models.DateTimeField(auto_now=True)
 
+    def _enregistrer_achats(self):
+        """Alimente les recommandations. Ne doit jamais bloquer le changement de statut."""
+        try:
+            from apps.recherche.services import enregistrer_achats
+            enregistrer_achats(self)
+        except Exception:
+            pass
+
     class Meta:
         ordering = ["-date_commande"]
 
@@ -101,6 +109,8 @@ class Commande(models.Model):
         HistoriqueStatutCommande.objects.create(
             commande=self, statut=nouveau_statut, statut_precedent=ancien_statut, commentaire=commentaire
         )
+        if nouveau_statut == "payee":
+            self._enregistrer_achats()
         self._notifier_changement_statut(nouveau_statut)
 
     def _notifier_changement_statut(self, statut):

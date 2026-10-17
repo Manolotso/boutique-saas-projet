@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
+from corsheaders.defaults import default_headers
 
 load_dotenv()
 
@@ -33,6 +34,8 @@ INSTALLED_APPS = [
     "apps.abonnements",
     "apps.comptes",
     "apps.recherche",
+
+    "django.contrib.postgres",
 ]
 
 AUTH_USER_MODEL = "comptes.CustomUser"
@@ -111,6 +114,12 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "description_generation": "10/min",
     },
+
+    "DEFAULT_THROTTLE_RATES": {
+    "description_generation": "10/min",
+    "recherche": "60/min",
+    "evenements": "120/min",
+},
 }
 
 SIMPLE_JWT = {
@@ -122,6 +131,8 @@ SIMPLE_JWT = {
 CORS_ALLOWED_ORIGINS = os.getenv(
     "CORS_ALLOWED_ORIGINS", "http://localhost:5173"
 ).split(",")
+
+CORS_ALLOW_HEADERS = list(default_headers) + ["x-visiteur-id"]
 
 ## Brevo
 

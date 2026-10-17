@@ -11,6 +11,8 @@ import { formaterPrixAriary } from "../../api/formatage";
 import { paiementsApi } from "../../api/paiements";
 import { usePanier } from "../../context/PanierContext";
 import { useToast } from "../../context/ToastContext";
+import { enregistrerEvenement } from "../../api/suivi";
+import ProduitsSimilaires from "../../components/boutique/ProduitsSimilaires";
 
 // Même largeur que le header, l'accueil, le catalogue et le footer
 const CONTENEUR = "w-full px-4 sm:px-6 lg:px-8 2xl:px-12";
@@ -111,6 +113,8 @@ export default function FicheProduit() {
   const departTouche = useRef(null);
 
   useEffect(() => {
+    window.scrollTo({ top: 0 });
+    setChargement(true);
     setChargement(true);
     setErreur(false);
     setImageActive(0);
@@ -136,6 +140,10 @@ export default function FicheProduit() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [nbImages]);
+
+    useEffect(() => {
+    if (produit?.id) enregistrerEvenement(sousDomaine, { type: "vue", produit_id: produit.id });
+  }, [produit?.id, sousDomaine]);
 
   if (chargement) {
     return (
@@ -450,6 +458,7 @@ export default function FicheProduit() {
           )}
         </div>
       </div>
+      <ProduitsSimilaires sousDomaine={sousDomaine} slug={produit.slug} />
     </div>
   );
 }

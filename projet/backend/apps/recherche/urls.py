@@ -1,0 +1,14 @@
+from django.urls import path
+
+from .views import EvenementView, PourVousView, ProduitsSimilairesView, RechercheProduitsView
+
+urlpatterns = [
+    path("<str:sous_domaine>/produits/", RechercheProduitsView.as_view(), name="recherche-produits"),
+    path(
+        "<str:sous_domaine>/produits/<str:slug>/similaires/",
+        ProduitsSimilairesView.as_view(),
+        name="produits-similaires",
+    ),
+    path("<str:sous_domaine>/pour-vous/", PourVousView.as_view(), name="pour-vous"),
+    path("<str:sous_domaine>/evenements/", EvenementView.as_view(), name="evenements"),
+]

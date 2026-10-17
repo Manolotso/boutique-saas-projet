@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useMemo, useCallback, u
 import { useParams } from "react-router-dom";
 import { useAuth } from "./AuthContext";
 import { catalogueApi } from "../api/catalogue";
+import { enregistrerEvenement } from "../api/suivi";
 
 const PanierContext = createContext(null);
 
@@ -118,7 +119,7 @@ export function PanierProvider({ children }) {
         },
       ];
     });
-
+        enregistrerEvenement(sousDomaine, { type: "ajout_panier", produit_id: produit.id });
     return resultat;
   };
 

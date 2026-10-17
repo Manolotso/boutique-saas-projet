@@ -1,4 +1,5 @@
 import apiClient from "./client";
+import { enteteVisiteur } from "./suivi";
 
 export const catalogueApi = {
   listerProduits: () => apiClient.get("/api/catalogue/produits/"),
@@ -28,4 +29,15 @@ export const catalogueApi = {
     }),
   obtenirProduitPublic: (sousDomaine, slug) =>
     apiClient.get(`/api/catalogue/boutiques/${sousDomaine}/produits/${slug}/`),
+
+  obtenirProduitPublic: (sousDomaine, slug) =>
+    apiClient.get(`/api/catalogue/boutiques/${sousDomaine}/produits/${slug}/`),
+
+  // --- Recherche et recommandations ---
+    rechercherProduits: (sousDomaine, q) =>
+    apiClient.get(`/api/recherche/${sousDomaine}/produits/`, { params: { q }, headers: enteteVisiteur() }),
+  produitsPourVous: (sousDomaine) =>
+    apiClient.get(`/api/recherche/${sousDomaine}/pour-vous/`, { headers: enteteVisiteur() }),
+  produitsSimilaires: (sousDomaine, slug) =>
+    apiClient.get(`/api/recherche/${sousDomaine}/produits/${slug}/similaires/`),
 };

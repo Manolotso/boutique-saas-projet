@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Store, Phone, MapPin, Truck } from "lucide-react";
 import { useBoutiquePublique } from "../../context/BoutiquePubliqueContext";
 import BadgeVerifie from "../../components/boutique/BadgeVerifie";
+import PourVous from "../../components/boutique/PourVous";
 
 const VILLES = {
   antananarivo: "Antananarivo", toamasina: "Toamasina", antsirabe: "Antsirabe",
@@ -135,6 +136,8 @@ export default function AccueilBoutique() {
           )}
         </div>
       )}
+
+      <PourVous sousDomaine={sousDomaine} />
     </div>
   );
 }

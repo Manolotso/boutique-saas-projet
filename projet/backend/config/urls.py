@@ -18,6 +18,8 @@ urlpatterns = [
     path("api/paiements/", include("apps.paiements.urls")),
     path("api/abonnements/", include("apps.abonnements.urls")),
     path("api/comptes/", include("apps.comptes.urls")),
+
+    path("api/recherche/", include("apps.recherche.urls")),
 ]
 
 if settings.DEBUG:

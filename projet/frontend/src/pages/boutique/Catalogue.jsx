@@ -1,25 +1,17 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Package, Search, SearchX, RotateCcw, X } from "lucide-react";
 import { catalogueApi } from "../../api/catalogue";
 import { useBoutiquePublique } from "../../context/BoutiquePubliqueContext";
 import ProduitCarte from "../../components/boutique/ProduitCarte";
 import Skeleton from "../../components/ui/Skeleton";
 import ProduitQuickView from "../../components/boutique/ProduitQuickView";
+import { enregistrerEvenement } from "../../api/suivi";
 
 // Même largeur que le header, l'accueil et le footer
 const CONTENEUR = "w-full px-4 sm:px-6 lg:px-8 2xl:px-12";
 
 // La grille s'adapte à la largeur : 2 colonnes sur mobile, jusqu'à 6 sur grand écran
 const GRILLE = "grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6";
-
-// Recherche défensive : le nom exact du champ produit n'est pas confirmé,
-// on tente les variantes les plus probables plutôt que de supposer une seule.
-function texteRecherchable(produit) {
-  return [produit?.nom, produit?.titre, produit?.nom_produit, produit?.description]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-}
 
 function EtatVide({ icone: Icone, titre, texte, children }) {
   return (
@@ -34,6 +26,25 @@ function EtatVide({ icone: Icone, titre, texte, children }) {
   );
 }
 
+function SectionRecommandations({ produits, onQuickView }) {
+  if (!produits.length) return null;
+  return (
+    <section className="mt-12 border-t border-[#12181B]/10 pt-8 sm:mt-16">
+      <h2 className="font-display text-[20px] font-medium text-[#12181B] sm:text-[22px]">
+        Recommandations pour vous
+      </h2>
+      <p className="mb-5 mt-1 text-[13px] text-[#12181B]/50">
+        D'autres produits qui pourraient vous plaire
+      </p>
+      <div className={GRILLE}>
+        {produits.map((p) => (
+          <ProduitCarte key={p.id} produit={p} onQuickView={onQuickView} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default function CatalogueBoutique() {
   const { sousDomaine } = useBoutiquePublique();
   const [produits, setProduits] = useState([]);
@@ -41,6 +52,14 @@ export default function CatalogueBoutique() {
   const [erreur, setErreur] = useState(false);
   const [recherche, setRecherche] = useState("");
   const [produitQuickView, setProduitQuickView] = useState(null);
+
+  // Recherche côté serveur : null = aucune réponse reçue pour la recherche en cours
+  const [resultats, setResultats] = useState(null);
+  const [recommandations, setRecommandations] = useState([]);
+  const [rechercheEnCours, setRechercheEnCours] = useState(false);
+
+  const terme = recherche.trim();
+  const rechercheActive = terme.length >= 2;
 
   const chargerProduits = () => {
     setChargement(true);
@@ -54,17 +73,45 @@ export default function CatalogueBoutique() {
 
   useEffect(chargerProduits, [sousDomaine]);
 
-  const produitsFiltres = useMemo(() => {
-    const terme = recherche.trim().toLowerCase();
-    if (!terme) return produits;
-    return produits.filter((produit) => texteRecherchable(produit).includes(terme));
-  }, [produits, recherche]);
+  useEffect(() => {
+    if (!rechercheActive) {
+      setResultats(null);
+      setRecommandations([]);
+      setRechercheEnCours(false);
+      return;
+    }
+    let annule = false;
+    setRechercheEnCours(true);
+    const minuteur = setTimeout(() => {
+      catalogueApi
+        .rechercherProduits(sousDomaine, terme)
+        .then((res) => {
+          if (annule) return;
+          setResultats(res.data.results || []);
+          setRecommandations(res.data.recommandations || []);
+          enregistrerEvenement(sousDomaine, { type: "recherche", requete: terme });
+        })
+        .catch(() => {
+          if (annule) return;
+          setResultats([]);
+          setRecommandations([]);
+        })
+        .finally(() => !annule && setRechercheEnCours(false));
+    }, 300);
+    return () => {
+      annule = true;
+      clearTimeout(minuteur);
+    };
+  }, [terme, sousDomaine, rechercheActive]);
 
+  const produitsTrouves = resultats ?? [];
+  const rechercheEnAttente = rechercheActive && (rechercheEnCours || resultats === null);
   const aDesProduits = !chargement && !erreur && produits.length > 0;
-  const rechercheActive = recherche.trim() !== "";
 
   const compteur = rechercheActive
-    ? `${produitsFiltres.length} résultat${produitsFiltres.length > 1 ? "s" : ""} sur ${produits.length}`
+    ? rechercheEnAttente
+      ? "Recherche en cours…"
+      : `${produitsTrouves.length} résultat${produitsTrouves.length > 1 ? "s" : ""}`
     : `${produits.length} produit${produits.length > 1 ? "s" : ""}`;
 
   return (
@@ -108,11 +155,7 @@ export default function CatalogueBoutique() {
           ))}
         </div>
       ) : erreur ? (
-        <EtatVide
-          icone={Package}
-          titre="Impossible de charger le catalogue"
-          texte="Vérifie ta connexion et réessaie."
-        >
+        <EtatVide icone={Package} titre="Impossible de charger le catalogue" texte="Vérifie ta connexion et réessaie.">
           <button
             onClick={chargerProduits}
             className="mt-5 inline-flex h-10 items-center gap-2 rounded-full bg-[#12181B] px-5 text-[13px] font-medium text-[#F6F7F2] transition-colors hover:bg-[#12181B]/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#12181B] focus-visible:ring-offset-2"
@@ -122,28 +165,49 @@ export default function CatalogueBoutique() {
           </button>
         </EtatVide>
       ) : produits.length === 0 ? (
-        <EtatVide
-          icone={Package}
-          titre="Aucun produit pour l'instant"
-          texte="Repasse bientôt, la boutique vient de démarrer."
-        />
-      ) : produitsFiltres.length === 0 ? (
-        <EtatVide
-          icone={SearchX}
-          titre={`Aucun résultat pour « ${recherche} »`}
-          texte="Essaie avec un autre mot ou vérifie l'orthographe."
-        >
-          <button
-            onClick={() => setRecherche("")}
-            className="mt-5 inline-flex h-10 items-center rounded-full border border-[#12181B]/15 px-5 text-[13px] font-medium text-[#12181B] transition-colors hover:bg-[#12181B]/5"
-          >
-            Effacer la recherche
-          </button>
-        </EtatVide>
+        <EtatVide icone={Package} titre="Aucun produit pour l'instant" texte="Repasse bientôt, la boutique vient de démarrer." />
+      ) : rechercheActive ? (
+        <>
+          {rechercheEnAttente ? (
+            <div className={GRILLE}>
+              {[...Array(6)].map((_, i) => (
+                <Skeleton key={i} className="aspect-square w-full" />
+              ))}
+            </div>
+          ) : produitsTrouves.length === 0 ? (
+            <EtatVide
+              icone={SearchX}
+              titre={`Aucun résultat pour « ${terme} »`}
+              texte="Essaie avec un autre mot ou vérifie l'orthographe."
+            >
+              <button
+                onClick={() => setRecherche("")}
+                className="mt-5 inline-flex h-10 items-center rounded-full border border-[#12181B]/15 px-5 text-[13px] font-medium text-[#12181B] transition-colors hover:bg-[#12181B]/5"
+              >
+                Effacer la recherche
+              </button>
+            </EtatVide>
+          ) : (
+            <section>
+              <h2 className="mb-5 font-display text-[20px] font-medium text-[#12181B] sm:text-[22px]">
+                Résultats pour « {terme} »
+              </h2>
+              <div className={GRILLE}>
+                {produitsTrouves.map((p) => (
+                  <ProduitCarte key={p.id} produit={p} onQuickView={setProduitQuickView} />
+                ))}
+              </div>
+            </section>
+          )}
+
+          {!rechercheEnAttente && (
+            <SectionRecommandations produits={recommandations} onQuickView={setProduitQuickView} />
+          )}
+        </>
       ) : (
         <div className={GRILLE}>
-          {produitsFiltres.map((produit) => (
-            <ProduitCarte key={produit.id} produit={produit} onQuickView={setProduitQuickView} />
+          {produits.map((p) => (
+            <ProduitCarte key={p.id} produit={p} onQuickView={setProduitQuickView} />
           ))}
         </div>
       )}
