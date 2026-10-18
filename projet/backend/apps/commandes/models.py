@@ -71,6 +71,10 @@ class Commande(models.Model):
     motif_annulation = models.CharField(max_length=255, blank=True)
     annulee_le = models.DateTimeField(null=True, blank=True)
 
+    # --- Groupe H : Notification côté commerçant ---
+    # False = « nouvelle » dans la cloche du commerçant. Repasse à False quand le paiement arrive.
+    notification_lue = models.BooleanField(default=False)
+
     date_commande = models.DateTimeField(auto_now_add=True)
     date_modification = models.DateTimeField(auto_now=True)
 
@@ -105,6 +109,10 @@ class Commande(models.Model):
         self.statut = nouveau_statut
         if nouveau_statut == "annulee":
             self.annulee_le = timezone.now()
+        if nouveau_statut == "payee":
+            # Le paiement est fait par le client : c'est un nouvel événement pour le commerçant,
+            # la commande réapparaît donc comme « nouvelle » dans ses notifications.
+            self.notification_lue = False
         self.save()
         HistoriqueStatutCommande.objects.create(
             commande=self, statut=nouveau_statut, statut_precedent=ancien_statut, commentaire=commentaire

@@ -101,6 +101,7 @@ export default function Commandes() {
     try {
       await commandesApi.changerStatutCommande(commande.id, nouveauStatut, commentaire);
       notifier(`Commande passée à "${labelStatut(nouveauStatut)}".`);
+      window.dispatchEvent(new Event("commandes:changement"));
       charger();
       setCommandeSelectionnee(null);
     } catch (err) {

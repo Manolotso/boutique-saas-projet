@@ -58,7 +58,7 @@ class NotificationCommandeSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
     def get_nouvelle(self, commande):
-        return commande.date_commande > self.context["vues_le"]
+        return not commande.notification_lue
 
 
 class LigneCommandeCreationSerializer(serializers.Serializer):

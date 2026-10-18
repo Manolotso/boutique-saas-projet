@@ -14,6 +14,6 @@ export const commandesApi = {
 
   // --- Notifications (côté commerçant) ---
   listerNotifications: () => apiClient.get("/api/commandes/notifications/"),
-  marquerNotificationsLues: (jusqua) =>
-    apiClient.post("/api/commandes/notifications/marquer-lues/", jusqua ? { jusqua } : {}),
+    marquerNotificationsLues: (ids) =>
+    apiClient.post("/api/commandes/notifications/marquer-lues/", ids && ids.length ? { ids } : {}),
 };

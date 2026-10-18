@@ -6,15 +6,6 @@ import { useToast } from "../../context/ToastContext";
 
 const INTERVALLE_MS = 30000; // le serveur est interrogé toutes les 30 secondes
 
-const LABEL_STATUT = {
-  en_attente: "En attente",
-  confirmee: "Confirmée",
-  payee: "Payée",
-  expediee: "Expédiée",
-  livree: "Livrée",
-  annulee: "Annulée",
-};
-
 function depuis(dateIso) {
   const minutes = Math.floor((Date.now() - new Date(dateIso).getTime()) / 60000);
   if (minutes < 1) return "à l'instant";
@@ -32,7 +23,8 @@ export default function NotificationsMenu() {
   const navigate = useNavigate();
   const { notifier } = useToast();
 
-  // Actualisation régulière, en pause quand l'onglet est caché.
+  // Actualisation régulière (toutes les 30 s, au retour sur l'onglet, et dès qu'un statut de
+  // commande change dans l'application).
   useEffect(() => {
     let annule = false;
 
@@ -41,9 +33,10 @@ export default function NotificationsMenu() {
       try {
         const { data } = await commandesApi.listerNotifications();
         if (annule) return;
+
         if (nonLuesPrecedent.current !== null && data.non_lues > nonLuesPrecedent.current) {
           const nouvelles = data.non_lues - nonLuesPrecedent.current;
-          notifier(nouvelles > 1 ? `${nouvelles} nouvelles commandes reçues.` : "Nouvelle commande reçue !");
+          notifier(nouvelles > 1 ? `${nouvelles} nouvelles commandes à expédier.` : "Nouvelle commande à expédier !");
         }
         nonLuesPrecedent.current = data.non_lues;
         setDonnees(data);
@@ -59,11 +52,13 @@ export default function NotificationsMenu() {
     actualiser();
     const intervalle = setInterval(actualiser, INTERVALLE_MS);
     document.addEventListener("visibilitychange", auRetourSurLOnglet);
+    window.addEventListener("commandes:changement", actualiser);
 
     return () => {
       annule = true;
       clearInterval(intervalle);
       document.removeEventListener("visibilitychange", auRetourSurLOnglet);
+      window.removeEventListener("commandes:changement", actualiser);
     };
   }, []);
 
@@ -78,7 +73,7 @@ export default function NotificationsMenu() {
 
   const toutMarquerLu = async () => {
     try {
-      const { data } = await commandesApi.marquerNotificationsLues(donnees.commandes[0]?.date_commande);
+      const { data } = await commandesApi.marquerNotificationsLues();
       nonLuesPrecedent.current = data.non_lues;
       setDonnees((d) => ({
         non_lues: data.non_lues,
@@ -89,8 +84,19 @@ export default function NotificationsMenu() {
     }
   };
 
+  // Un clic ouvre la commande et la marque comme lue (elle reste listée tant qu'elle est en cours).
   const ouvrirCommande = (commande) => {
     setOuvert(false);
+
+    if (commande.nouvelle) {
+      setDonnees((d) => ({
+        non_lues: Math.max(d.non_lues - 1, 0),
+        commandes: d.commandes.map((c) => (c.id === commande.id ? { ...c, nouvelle: false } : c)),
+      }));
+      nonLuesPrecedent.current = Math.max((nonLuesPrecedent.current ?? 1) - 1, 0);
+      commandesApi.marquerNotificationsLues([commande.id]).catch(() => {});
+    }
+
     navigate(`/commercant/commandes?commande=${encodeURIComponent(commande.numero_commande)}`);
   };
 
@@ -112,7 +118,7 @@ export default function NotificationsMenu() {
       {ouvert && (
         <div className="absolute right-0 mt-2 w-[min(20rem,calc(100vw-2rem))] rounded-xl bg-white border border-[#12181B]/10 shadow-lg z-50 overflow-hidden">
           <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-[#12181B]/10">
-            <p className="text-[13px] font-medium text-[#12181B]">Notifications</p>
+            <p className="text-[13px] font-medium text-[#12181B]">Commandes à expédier</p>
             {donnees.non_lues > 0 && (
               <button
                 onClick={toutMarquerLu}
@@ -125,7 +131,7 @@ export default function NotificationsMenu() {
 
           <div className="max-h-96 overflow-y-auto">
             {donnees.commandes.length === 0 ? (
-              <p className="px-3.5 py-6 text-center text-[13px] text-[#12181B]/45">Aucune commande pour l'instant.</p>
+              <p className="px-3.5 py-6 text-center text-[13px] text-[#12181B]/45">Aucune commande à expédier.</p>
             ) : (
               donnees.commandes.map((c) => (
                 <button
@@ -146,7 +152,7 @@ export default function NotificationsMenu() {
                     <span className="block text-[12.5px] text-[#12181B]/60 truncate">
                       {c.nom_destinataire || "Client"} · {Number(c.montant_total).toLocaleString("fr-MG")} Ar
                     </span>
-                    <span className="block text-[11.5px] text-[#12181B]/40">{LABEL_STATUT[c.statut] || c.statut}</span>
+                    <span className="block text-[11.5px] text-[#12181B]/40">Payée · à expédier</span>
                   </span>
                   {c.nouvelle && (
                     <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-[var(--boutique-accent,#0E7C66)]" />
