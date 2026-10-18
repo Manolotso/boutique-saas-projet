@@ -2,18 +2,21 @@ import uuid
 
 from django.shortcuts import get_object_or_404
 from rest_framework import status
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 
 from apps.catalogue.models import Produit
-from apps.catalogue.serializers import ProduitPublicSerializer
+from apps.catalogue.serializers import ProduitMarketplaceSerializer, ProduitPublicSerializer
 from apps.tenants.models import Tenant
 
 from .services import (
     enregistrer_evenement,
+    produits_nouveautes_global,
+    produits_populaires_global,
     produits_pour_vous,
+    produits_pour_vous_global,
     produits_recommandes,
     produits_similaires,
     rechercher_produits,
@@ -45,6 +48,18 @@ def _serialiser(ids, tenant, request):
     par_id = {p.id: p for p in produits}
     ordonnes = [par_id[i] for i in ids if i in par_id]
     return ProduitPublicSerializer(ordonnes, many=True, context={"request": request}).data
+
+
+def _serialiser_global(ids, request):
+    """Même chose, toutes boutiques confondues, avec le nom de la boutique."""
+    produits = (
+        Produit.objects.filter(id__in=ids)
+        .select_related("categorie", "tenant")
+        .prefetch_related("images", "variantes")
+    )
+    par_id = {p.id: p for p in produits}
+    ordonnes = [par_id[i] for i in ids if i in par_id]
+    return ProduitMarketplaceSerializer(ordonnes, many=True, context={"request": request}).data
 
 
 class RechercheProduitsView(APIView):
@@ -91,6 +106,22 @@ class PourVousView(APIView):
         visiteur_id, utilisateur = _contexte_visiteur(request)
         ids, personnalise = produits_pour_vous(tenant, visiteur_id, utilisateur)
         return Response({"results": _serialiser(ids, tenant, request), "personnalise": personnalise})
+
+
+class DecouvrirView(APIView):
+    """Page client : produits de toutes les boutiques, personnalisés."""
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [RechercheThrottle]
+
+    def get(self, request):
+        visiteur_id, utilisateur = _contexte_visiteur(request)
+        ids, personnalise = produits_pour_vous_global(utilisateur, visiteur_id)
+        return Response({
+            "pour_vous": _serialiser_global(ids, request),
+            "personnalise": personnalise,
+            "nouveautes": _serialiser_global(produits_nouveautes_global(), request),
+            "populaires": _serialiser_global(produits_populaires_global(), request),
+        })
 
 
 class EvenementView(APIView):

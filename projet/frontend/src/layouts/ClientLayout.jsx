@@ -1,7 +1,8 @@
 import { NavLink, Outlet } from "react-router-dom";
-import { User, ShoppingBag } from "lucide-react";
+import { User, ShoppingBag, Compass } from "lucide-react";
 
 const MENU = [
+  { to: "/decouvrir", label: "Découvrir", icon: Compass },
   { to: "/mon-compte", label: "Profil", icon: User, fin: true },
   { to: "/mon-compte/commandes", label: "Mes commandes", icon: ShoppingBag },
 ];

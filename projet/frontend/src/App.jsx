@@ -25,6 +25,7 @@ import ClientLayout from "./layouts/ClientLayout";
 import Profil from "./pages/client/Profil";
 import MesCommandesTab from "./pages/client/MesCommandesTab";
 import Abonnement from "./pages/commercant/Abonnement";
+import Decouvrir from "./pages/client/Decouvrir";
 
 export default function App() {
   return (
@@ -71,6 +72,15 @@ export default function App() {
           <Route path="commande/:numeroCommande/suivi" element={<Suivi />} />
           <Route path="commande/:numeroCommande/paiement" element={<Paiement />} />
       </Route>
+
+            <Route
+        path="/decouvrir"
+        element={
+          <RouteProtegee rolesAutorises={["client"]}>
+            <Decouvrir />
+          </RouteProtegee>
+        }
+      />
 
       <Route
           element={

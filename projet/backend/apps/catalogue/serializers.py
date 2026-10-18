@@ -69,3 +69,10 @@ class ProduitPublicSerializer(serializers.ModelSerializer):
             "images", "variantes",
             "date_publication",
         ]
+
+class ProduitMarketplaceSerializer(ProduitPublicSerializer):
+    boutique_nom = serializers.CharField(source="tenant.nom_boutique", read_only=True)
+    boutique_sous_domaine = serializers.CharField(source="tenant.sous_domaine", read_only=True)
+
+    class Meta(ProduitPublicSerializer.Meta):
+        fields = ProduitPublicSerializer.Meta.fields + ["boutique_nom", "boutique_sous_domaine"]

@@ -1,8 +1,15 @@
 from django.urls import path
 
-from .views import EvenementView, PourVousView, ProduitsSimilairesView, RechercheProduitsView
+from .views import (
+    DecouvrirView,
+    EvenementView,
+    PourVousView,
+    ProduitsSimilairesView,
+    RechercheProduitsView,
+)
 
 urlpatterns = [
+    path("decouvrir/", DecouvrirView.as_view(), name="decouvrir"),
     path("<str:sous_domaine>/produits/", RechercheProduitsView.as_view(), name="recherche-produits"),
     path(
         "<str:sous_domaine>/produits/<str:slug>/similaires/",

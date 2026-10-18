@@ -21,8 +21,8 @@ export const catalogueApi = {
   definirImagePrincipale: (produitId, imageId) =>
     apiClient.post(`/api/catalogue/images/${imageId}/definir-principale/`),
   supprimerImageProduit: (imageId) => apiClient.delete(`/api/catalogue/images/${imageId}/`),
-  
-    // --- Vitrine publique ---
+
+  // --- Vitrine publique ---
   listerProduitsPublics: (sousDomaine, categorieId) =>
     apiClient.get(`/api/catalogue/boutiques/${sousDomaine}/produits/`, {
       params: categorieId ? { categorie: categorieId } : {},
@@ -30,14 +30,15 @@ export const catalogueApi = {
   obtenirProduitPublic: (sousDomaine, slug) =>
     apiClient.get(`/api/catalogue/boutiques/${sousDomaine}/produits/${slug}/`),
 
-  obtenirProduitPublic: (sousDomaine, slug) =>
-    apiClient.get(`/api/catalogue/boutiques/${sousDomaine}/produits/${slug}/`),
-
   // --- Recherche et recommandations ---
-    rechercherProduits: (sousDomaine, q) =>
+  rechercherProduits: (sousDomaine, q) =>
     apiClient.get(`/api/recherche/${sousDomaine}/produits/`, { params: { q }, headers: enteteVisiteur() }),
-  produitsPourVous: (sousDomaine) =>
-    apiClient.get(`/api/recherche/${sousDomaine}/pour-vous/`, { headers: enteteVisiteur() }),
   produitsSimilaires: (sousDomaine, slug) =>
     apiClient.get(`/api/recherche/${sousDomaine}/produits/${slug}/similaires/`),
+  produitsPourVous: (sousDomaine) =>
+    apiClient.get(`/api/recherche/${sousDomaine}/pour-vous/`, { headers: enteteVisiteur() }),
+
+  // --- Page client "Découvrir" (toutes boutiques) ---
+  decouvrir: () =>
+    apiClient.get("/api/recherche/decouvrir/", { headers: enteteVisiteur() }),
 };

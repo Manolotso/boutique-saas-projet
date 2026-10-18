@@ -1,21 +1,17 @@
 import hashlib
 import threading
+from datetime import timedelta
 
 import numpy as np
 from django.conf import settings
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
+from django.db.models import Q
+from django.utils import timezone
 from pgvector.django import CosineDistance
 
 from apps.catalogue.models import Produit
 
-from .models import ProduitEmbedding, Evenement  # remplace l'import existant de ProduitEmbedding
-
-from datetime import timedelta
-
-from django.db.models import Q
-from django.utils import timezone
-
-
+from .models import Evenement, ProduitEmbedding
 
 _modele = None
 _verrou = threading.Lock()
@@ -101,7 +97,7 @@ def indexer_produits(produits, forcer=False):
 # --------------------------------------------------------------------------
 K_RRF = 60               # constante classique de la Reciprocal Rank Fusion
 SEUIL_SIMILARITE = 0.35  # plancher absolu : en dessous, toujours hors sujet
-MARGE_RELATIVE = 0.20   # on garde les produits à moins de 0,15 du meilleur score (provisoire)
+MARGE_RELATIVE = 0.20    # on garde les produits à moins de 0,20 du meilleur score
 LIMITE_CANDIDATS = 50
 
 
@@ -121,7 +117,7 @@ def recherche_plein_texte(tenant, requete):
     qs = (
         _produits_publics(tenant)
         .annotate(recherche=vecteur, rang=SearchRank(vecteur, query))
-        .filter(recherche=query)   # vrai test de correspondance (opérateur @@)
+        .filter(recherche=query)  # vrai test de correspondance (opérateur @@)
         .order_by("-rang")
     )
     return list(qs.values_list("id", flat=True)[:LIMITE_CANDIDATS])
@@ -161,10 +157,7 @@ def rechercher_produits(tenant, requete, limite=24):
 
 
 # --------------------------------------------------------------------------
-# Recommandations sous les résultats de recherche (version provisoire, phase 2)
-# --------------------------------------------------------------------------
-# --------------------------------------------------------------------------
-# Événements et profil du visiteur (phase 4)
+# Événements et profil du visiteur
 # --------------------------------------------------------------------------
 POIDS_EVENEMENTS = {"vue": 1.0, "ajout_panier": 3.0, "achat": 5.0}
 DEMI_VIE_JOURS = 30  # une action vieille de 30 jours compte moitié moins
@@ -196,6 +189,7 @@ def enregistrer_achats(commande):
 
 
 def _evenements_visiteur(tenant, visiteur_id, utilisateur):
+    """tenant=None : événements de toutes les boutiques (page 'Découvrir')."""
     q = Q()
     if visiteur_id:
         q |= Q(visiteur_id=visiteur_id)
@@ -203,7 +197,8 @@ def _evenements_visiteur(tenant, visiteur_id, utilisateur):
         q |= Q(utilisateur=utilisateur)
     if not q:
         return Evenement.objects.none()
-    return Evenement.objects.filter(q, tenant=tenant, produit__isnull=False, type__in=POIDS_EVENEMENTS)
+    qs = Evenement.objects.filter(q, produit__isnull=False, type__in=POIDS_EVENEMENTS)
+    return qs.filter(tenant=tenant) if tenant is not None else qs
 
 
 def profil_visiteur(tenant, visiteur_id, utilisateur):
@@ -288,7 +283,7 @@ def produits_recommandes(tenant, ids_resultats, visiteur_id="", utilisateur=None
 
 
 def produits_pour_vous(tenant, visiteur_id="", utilisateur=None, limite=8):
-    """Section 'Pour vous' de l'accueil. Retourne (ids, personnalise)."""
+    """Section 'Pour vous' de l'accueil d'une boutique. Retourne (ids, personnalise)."""
     base = _produits_publics(tenant).exclude(id__in=_ids_achetes(tenant, visiteur_id, utilisateur))
     profil = profil_visiteur(tenant, visiteur_id, utilisateur)
     ids = _plus_proches(base, profil, limite) if profil else []
@@ -297,7 +292,7 @@ def produits_pour_vous(tenant, visiteur_id="", utilisateur=None, limite=8):
 
 
 # --------------------------------------------------------------------------
-# Produits similaires (fiche produit, phase 3)
+# Produits similaires (fiche produit)
 # --------------------------------------------------------------------------
 def produits_similaires(tenant, produit, limite=8):
     """Produits les plus proches par le sens, complétés par la même catégorie puis les mieux classés."""
@@ -328,3 +323,37 @@ def produits_similaires(tenant, produit, limite=8):
             .values_list("id", flat=True)[: limite - len(ids)]
         )
     return ids
+
+
+# --------------------------------------------------------------------------
+# Page "Découvrir" : toutes les boutiques confondues
+# --------------------------------------------------------------------------
+def _produits_marketplace():
+    """Tous les produits publiés des boutiques actives."""
+    return (
+        Produit.objects.filter(statut="publie", est_supprime=False, tenant__est_supprime=False)
+        .exclude(tenant__statut="suspendu")
+    )
+
+
+def produits_pour_vous_global(utilisateur, visiteur_id="", limite=24):
+    """Page 'Pour vous' toutes boutiques confondues. Retourne (ids, personnalise)."""
+    base = _produits_marketplace().exclude(id__in=_ids_achetes(None, visiteur_id, utilisateur))
+    profil = profil_visiteur(None, visiteur_id, utilisateur)
+    ids = _plus_proches(base, profil, limite) if profil else []
+    personnalise = bool(ids)
+    return _completer(base, ids, limite), personnalise
+
+
+def produits_nouveautes_global(limite=12):
+    return list(
+        _produits_marketplace().order_by("-date_publication").values_list("id", flat=True)[:limite]
+    )
+
+
+def produits_populaires_global(limite=12):
+    return list(
+        _produits_marketplace()
+        .order_by("-nombre_ventes", "-date_publication")
+        .values_list("id", flat=True)[:limite]
+    )

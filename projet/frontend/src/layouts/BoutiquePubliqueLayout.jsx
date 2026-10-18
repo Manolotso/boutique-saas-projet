@@ -8,6 +8,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { BoutiquePubliqueProvider, useBoutiquePublique } from "../context/BoutiquePubliqueContext";
 import MiniPanier from "../components/boutique/MiniPanier";
 import { PanierProvider, usePanier } from "../context/PanierContext";
+import BoutonDecouvrir from "../components/boutique/BoutonDecouvrir";
 
 // Même largeur partout : header, bandeau, footer (et AccueilBoutique)
 const CONTENEUR = "w-full px-4 sm:px-6 lg:px-8 2xl:px-12";
@@ -282,6 +283,7 @@ function ShellBoutique() {
         ))}
       </nav>
       <span className="mx-2 h-6 w-px bg-[#12181B]/10" />
+      <BoutonDecouvrir />
       <BoutonPartage couleurAccent={couleurAccent} />
       <BoutonPanier couleurAccent={couleurAccent} onClick={() => setMiniPanierOuvert(true)} />
     </div>
@@ -308,6 +310,7 @@ function ShellBoutique() {
 
     {/* Mobile / tablette : boutons + menu */}
     <div className="flex items-center gap-2 lg:hidden">
+      <BoutonDecouvrir />
       <BoutonPartage couleurAccent={couleurAccent} />
       <BoutonPanier couleurAccent={couleurAccent} onClick={() => setMiniPanierOuvert(true)} />
       <button

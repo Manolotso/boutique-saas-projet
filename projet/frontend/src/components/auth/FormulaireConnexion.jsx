@@ -8,11 +8,11 @@ export default function FormulaireConnexion({ onSuccess, onSwitchToInscription, 
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
 
-  const redirigerSelonRole = (role) => {
-  if (role === "commercant") navigate("/commercant");
-  else if (role === "superadmin") navigate("/admin");
-  else navigate("/mon-compte");
-};
+    const redirigerSelonRole = (role) => {
+    if (role === "commercant") navigate("/commercant");
+    else if (role === "superadmin") navigate("/admin");
+    else navigate("/decouvrir");
+  };
 
   const handleSubmit = async (e) => {
   e.preventDefault();

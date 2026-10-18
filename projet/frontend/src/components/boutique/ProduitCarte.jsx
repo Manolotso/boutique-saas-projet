@@ -1,7 +1,6 @@
 import { Link } from "react-router-dom";
-import { Package, Eye } from "lucide-react";
+import { Package, Eye, Store } from "lucide-react";
 import { useBoutiquePublique } from "../../context/BoutiquePubliqueContext";
-import { formaterPrixAriary } from "../../api/formatage";
 
 // Seuils ajustables selon votre activité
 const SEUIL_STOCK_FAIBLE = 5;
@@ -56,8 +55,7 @@ const stylesBadge = {
   stock: "bg-orange-100 text-orange-700",
 };
 
-export default function ProduitCarte({ produit, onQuickView }) {
-  const { sousDomaine } = useBoutiquePublique();
+function CarteBase({ produit, onQuickView, sousDomaine, afficherBoutique }) {
   const imagePrincipale = produit.images?.find((img) => img.est_principale) || produit.images?.[0];
   const enPromo = produit.prix_promo && Number(produit.prix_actuel) < Number(produit.prix);
   const badges = calculerBadges(produit);
@@ -91,18 +89,20 @@ export default function ProduitCarte({ produit, onQuickView }) {
           </div>
         )}
 
-        {/* Bouton Quick View */}
-        <button
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            onQuickView?.(produit);
-          }}
-          className="absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white"
-          aria-label="Aperçu rapide"
-        >
-          <Eye size={14} className="text-[#12181B]" />
-        </button>
+        {/* Bouton Quick View (uniquement si la page fournit onQuickView) */}
+        {onQuickView && (
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onQuickView(produit);
+            }}
+            className="absolute bottom-2 right-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white"
+            aria-label="Aperçu rapide"
+          >
+            <Eye size={14} className="text-[#12181B]" />
+          </button>
+        )}
       </div>
 
       <div className="p-3.5">
@@ -117,7 +117,23 @@ export default function ProduitCarte({ produit, onQuickView }) {
             </span>
           )}
         </div>
+        {afficherBoutique && produit.boutique_nom && (
+          <p className="mt-1.5 flex items-center gap-1 text-[12px] text-[#12181B]/50">
+            <Store size={12} /> <span className="truncate">{produit.boutique_nom}</span>
+          </p>
+        )}
       </div>
     </Link>
   );
+}
+
+// Carte utilisée dans les pages d'une boutique (/boutique/:sousDomaine/...)
+export default function ProduitCarte(props) {
+  const { sousDomaine } = useBoutiquePublique();
+  return <CarteBase {...props} sousDomaine={sousDomaine} />;
+}
+
+// Carte utilisée sur la page "Découvrir" : le sous-domaine vient du produit
+export function ProduitCarteMarketplace(props) {
+  return <CarteBase {...props} sousDomaine={props.produit.boutique_sous_domaine} afficherBoutique />;
 }
