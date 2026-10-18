@@ -1,6 +1,7 @@
 import uuid
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 
 
 def horaires_par_defaut():
@@ -110,6 +111,11 @@ class Tenant(models.Model):
     frais_par_km = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     rayon_max_km = models.DecimalField(max_digits=6, decimal_places=2, default=10)
     seuil_livraison_gratuite = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+
+    # --- Groupe H : Notifications de commandes ---
+    # Une commande est « nouvelle » si elle est plus récente que cette date. Les boutiques existantes
+    # démarrent avec la date de la migration : elles n'ont donc aucune notification en retard.
+    notifications_vues_le = models.DateTimeField(default=timezone.now)
 
     class Meta:
         verbose_name = "Boutique (tenant)"

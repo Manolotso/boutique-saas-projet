@@ -11,4 +11,9 @@ export const commandesApi = {
   obtenirCommandeGestion: (id) => apiClient.get(`/api/commandes/gestion/${id}/`),
   changerStatutCommande: (id, statut, commentaire = "") =>
     apiClient.post(`/api/commandes/gestion/${id}/changer-statut/`, { statut, commentaire }),
+
+  // --- Notifications (côté commerçant) ---
+  listerNotifications: () => apiClient.get("/api/commandes/notifications/"),
+  marquerNotificationsLues: (jusqua) =>
+    apiClient.post("/api/commandes/notifications/marquer-lues/", jusqua ? { jusqua } : {}),
 };

@@ -44,6 +44,23 @@ class CommandeSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class NotificationCommandeSerializer(serializers.ModelSerializer):
+    """Version légère d'une commande pour la cloche de notifications du commerçant."""
+
+    nouvelle = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Commande
+        fields = [
+            "id", "numero_commande", "nom_destinataire", "montant_total",
+            "statut", "mode_livraison", "date_commande", "nouvelle",
+        ]
+        read_only_fields = fields
+
+    def get_nouvelle(self, commande):
+        return commande.date_commande > self.context["vues_le"]
+
+
 class LigneCommandeCreationSerializer(serializers.Serializer):
     produit_id = serializers.UUIDField()
     variante_id = serializers.UUIDField(required=False, allow_null=True)

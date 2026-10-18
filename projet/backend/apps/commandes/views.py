@@ -1,11 +1,14 @@
+from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from rest_framework import generics, viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from apps.tenants.models import Tenant
 from apps.comptes.permissions import EstCommercant, EstProprietaireBoutique
 from .models import Commande
-from .serializers import CommandeSerializer, CommandeCreationSerializer
+from .serializers import CommandeSerializer, CommandeCreationSerializer, NotificationCommandeSerializer
 from .permissions import EstProprietaireCommandeOuCommercant
 
 
@@ -84,3 +87,51 @@ class CommandeCommercantViewSet(viewsets.ReadOnlyModelViewSet):
 
         commande.changer_statut(nouveau_statut, commentaire)
         return Response(CommandeSerializer(commande).data)
+
+
+class NotificationsCommandesView(APIView):
+    """Cloche de notifications du commerçant : ses 10 dernières commandes et le nombre de
+    commandes arrivées depuis sa dernière lecture."""
+
+    permission_classes = [IsAuthenticated, EstCommercant]
+
+    def get(self, request):
+        tenant = request.user.boutique
+        vues_le = tenant.notifications_vues_le
+        commandes = Commande.objects.filter(tenant=tenant)  # déjà triées de la plus récente à la plus ancienne
+
+        return Response({
+            "non_lues": commandes.filter(date_commande__gt=vues_le).count(),
+            "commandes": NotificationCommandeSerializer(
+                commandes[:10], many=True, context={"vues_le": vues_le}
+            ).data,
+        })
+
+
+class MarquerNotificationsLuesView(APIView):
+    """Marque les notifications comme lues. Le frontend envoie `jusqua` (la date de la commande la
+    plus récente qu'il affiche) : une commande arrivée entre-temps reste ainsi non lue au lieu de
+    disparaître sans avoir été vue."""
+
+    permission_classes = [IsAuthenticated, EstCommercant]
+
+    def post(self, request):
+        tenant = request.user.boutique
+        maintenant = timezone.now()
+
+        try:
+            jusqua = parse_datetime(str(request.data.get("jusqua") or ""))
+        except ValueError:
+            jusqua = None
+        if jusqua is None or timezone.is_naive(jusqua) or jusqua > maintenant:
+            jusqua = maintenant
+
+        # La date de lecture n'avance que vers le futur : jamais de retour en arrière.
+        if jusqua > tenant.notifications_vues_le:
+            tenant.notifications_vues_le = jusqua
+            tenant.save(update_fields=["notifications_vues_le"])
+
+        non_lues = Commande.objects.filter(
+            tenant=tenant, date_commande__gt=tenant.notifications_vues_le
+        ).count()
+        return Response({"non_lues": non_lues})

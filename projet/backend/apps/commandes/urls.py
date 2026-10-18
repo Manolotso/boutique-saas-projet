@@ -1,6 +1,9 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import CreerCommandeView, MesCommandesView, CommandeDetailView, CommandeCommercantViewSet
+from .views import (
+    CreerCommandeView, MesCommandesView, CommandeDetailView, CommandeCommercantViewSet,
+    NotificationsCommandesView, MarquerNotificationsLuesView,
+)
 
 router = DefaultRouter()
 router.register("gestion", CommandeCommercantViewSet, basename="commandes-gestion")
@@ -12,4 +15,6 @@ urlpatterns = [
     path("mes-commandes/", MesCommandesView.as_view()),
     path("suivi/<str:numero_commande>/", CommandeDetailView.as_view()),
     path("boutiques/<slug:sous_domaine>/commander/", CreerCommandeView.as_view()),
+    path("notifications/", NotificationsCommandesView.as_view()),
+    path("notifications/marquer-lues/", MarquerNotificationsLuesView.as_view()),
 ]
