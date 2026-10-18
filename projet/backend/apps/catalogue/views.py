@@ -19,6 +19,7 @@ from .models import ImageProduit
 from .serializers import ImageProduitSerializer
 from django_filters.rest_framework import DjangoFilterBackend
 from .serializers import ProduitPublicSerializer
+from apps.abonnements.services import verifier_peut_ajouter_produit
 
 from .serializers import GenerateDescriptionSerializer
 
@@ -47,6 +48,7 @@ class ProduitViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         tenant = self.request.user.boutique
+        verifier_peut_ajouter_produit(tenant)  # refuse si l'essai est terminé ou la limite du plan atteinte
         nom = serializer.validated_data.get("nom", "")
         slug = slugify(nom)
 

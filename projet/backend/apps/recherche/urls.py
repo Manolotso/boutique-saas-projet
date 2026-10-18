@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    CatalogueBoutiqueView,
     DecouvrirView,
     EvenementView,
     PourVousView,
@@ -20,4 +21,5 @@ urlpatterns = [
     ),
     path("<str:sous_domaine>/pour-vous/", PourVousView.as_view(), name="pour-vous"),
     path("<str:sous_domaine>/evenements/", EvenementView.as_view(), name="evenements"),
+    path("<str:sous_domaine>/catalogue/", CatalogueBoutiqueView.as_view(), name="catalogue-boutique"),
 ]

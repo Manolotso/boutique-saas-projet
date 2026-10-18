@@ -44,4 +44,7 @@ export const catalogueApi = {
 
     rechercherDecouvrir: (params) =>
     apiClient.get("/api/recherche/decouvrir/recherche/", { params, headers: enteteVisiteur() }),
+
+      catalogueBoutique: (sousDomaine, params) =>
+    apiClient.get(`/api/recherche/${sousDomaine}/catalogue/`, { params, headers: enteteVisiteur() }),
 };

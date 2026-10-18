@@ -75,6 +75,10 @@ class Paiement(models.Model):
         self.montant_net = self.montant - self.montant_frais
 
     def save(self, *args, **kwargs):
+        if self._state.adding and not self.taux_commission:
+            # Commission du plan de la boutique au moment du paiement, ensuite figée.
+            from apps.abonnements.services import taux_commission
+            self.taux_commission = taux_commission(self.commande.tenant)
         self.calculer_montants()
         super().save(*args, **kwargs)
 

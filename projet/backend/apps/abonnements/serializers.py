@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Plan, Abonnement, HistoriqueAbonnement, Facture
+from .services import CODE_PLAN_ESSAI, usage_de
 
 
 class PlanSerializer(serializers.ModelSerializer):
@@ -37,6 +38,7 @@ class AbonnementSerializer(serializers.ModelSerializer):
     factures = FactureSerializer(many=True, read_only=True)
     boutique_nom = serializers.CharField(source="tenant.nom_boutique", read_only=True)
     jours_restants_essai = serializers.SerializerMethodField()
+    usage = serializers.SerializerMethodField()
 
     class Meta:
         model = Abonnement
@@ -45,6 +47,7 @@ class AbonnementSerializer(serializers.ModelSerializer):
             "renouvellement_automatique", "date_prochain_renouvellement",
             "date_fin_essai", "jours_restants_essai",
             "date_debut", "date_fin",
+            "usage",
             "historique", "factures",
         ]
         read_only_fields = fields
@@ -56,9 +59,20 @@ class AbonnementSerializer(serializers.ModelSerializer):
         delta = (obj.date_fin_essai - timezone.now().date()).days
         return max(delta, 0)
 
+    def get_usage(self, obj):
+        # Calculé seulement pour le commerçant qui consulte son propre abonnement (la liste du
+        # SuperAdmin n'en a pas besoin, et chaque calcul interroge la base).
+        if not self.context.get("avec_usage"):
+            return None
+        return usage_de(obj)
+
 
 class ChangerPlanSerializer(serializers.Serializer):
+    # Le plan d'essai ne se choisit pas à la main : sinon un essai terminé pourrait être recommencé
+    # indéfiniment en repassant sur le plan gratuit.
     plan_code = serializers.SlugRelatedField(
-        slug_field="code", queryset=Plan.objects.filter(est_actif=True), source="plan"
+        slug_field="code",
+        queryset=Plan.objects.filter(est_actif=True).exclude(code=CODE_PLAN_ESSAI),
+        source="plan",
     )
     periodicite = serializers.ChoiceField(choices=Plan.PERIODICITE_CHOICES, default="mensuel")

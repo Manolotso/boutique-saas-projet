@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Plus,
@@ -16,6 +17,7 @@ import {
   Tag,
 } from "lucide-react";
 import { catalogueApi } from "../../api/catalogue";
+import { abonnementsApi } from "../../api/abonnements";
 import Modal from "../../components/ui/Modal";
 import Skeleton from "../../components/ui/Skeleton";
 import ProduitFormulaire from "../../components/commercant/ProduitFormulaire";
@@ -321,6 +323,7 @@ export default function Produits() {
   const [selection, setSelection] = useState([]);
   const [tri, setTri] = useState({ champ: "date_creation", ordre: "desc" });
   const [categories, setCategories] = useState([]);
+  const [usage, setUsage] = useState(null); // limites du plan (nombre de produits, essai terminé…)
 
   const [vue, setVue] = useState("grille"); // "grille" | "tableau"
   const [recherche, setRecherche] = useState("");
@@ -332,6 +335,7 @@ export default function Produits() {
 
   const chargerProduits = () => {
     setChargement(true);
+    abonnementsApi.obtenirMonAbonnement().then((res) => setUsage(res.data.usage)).catch(() => {});
     catalogueApi
       .listerProduits()
       .then((res) => setProduits(res.data.results || res.data))
@@ -379,7 +383,10 @@ export default function Produits() {
     setSelection((s) => (s.length === produitsFiltres.length ? [] : produitsFiltres.map((p) => p.id)));
   };
 
+  const limiteAtteinte = usage ? !usage.peut_ajouter : false;
+
   const ouvrirCreation = () => {
+    if (limiteAtteinte) return;
     setProduitEnEdition(null);
     setModalOuvert(true);
   };
@@ -459,15 +466,27 @@ export default function Produits() {
           <h1 className="font-display text-[24px] font-medium text-[#12181B]">Mes produits</h1>
           <p className="text-[13px] text-[#12181B]/45 mt-0.5">
             {produits.length} produit{produits.length > 1 ? "s" : ""} au total
+            {usage?.produits_max != null && ` · ${usage.produits_utilises} / ${usage.produits_max} avec ton plan`}
           </p>
         </div>
         <button
           onClick={ouvrirCreation}
-          className="inline-flex items-center gap-1.5 rounded-full bg-[var(--boutique-primary,#12181B)] text-[#F6F7F2] text-[14px] font-medium px-5 py-2.5 hover:opacity-90 transition-opacity"
+          disabled={limiteAtteinte}
+          title={limiteAtteinte ? usage.message : undefined}
+          className="inline-flex items-center gap-1.5 rounded-full bg-[var(--boutique-primary,#12181B)] text-[#F6F7F2] text-[14px] font-medium px-5 py-2.5 hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Plus size={16} /> Nouveau produit
         </button>
       </div>
+
+      {limiteAtteinte && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 mb-4">
+          <p className="text-[13px] text-amber-800">{usage.message}</p>
+          <Link to="/commercant/abonnement" className="text-[13px] font-medium text-amber-900 hover:underline">
+            Voir les plans
+          </Link>
+        </div>
+      )}
 
       {/* Barre d'outils */}
       <div className="flex flex-wrap items-center gap-2.5 mb-4">
@@ -599,7 +618,9 @@ export default function Produits() {
           <p className="text-[14px] text-[#12181B]/60 mb-4">Aucun produit pour l'instant.</p>
           <button
             onClick={ouvrirCreation}
-            className="inline-flex items-center gap-1.5 rounded-full bg-[var(--boutique-primary,#12181B)] text-[#F6F7F2] text-[13px] font-medium px-4 py-2 hover:opacity-90 transition-opacity"
+            disabled={limiteAtteinte}
+            title={limiteAtteinte ? usage.message : undefined}
+            className="inline-flex items-center gap-1.5 rounded-full bg-[var(--boutique-primary,#12181B)] text-[#F6F7F2] text-[13px] font-medium px-4 py-2 hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus size={14} /> Créer le premier
           </button>

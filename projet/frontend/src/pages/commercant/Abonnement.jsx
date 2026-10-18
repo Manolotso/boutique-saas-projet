@@ -1,9 +1,16 @@
 import { useEffect, useState } from "react";
-import { Check, Clock, CreditCard } from "lucide-react";
+import { Check, Clock, CreditCard, AlertTriangle } from "lucide-react";
 import { abonnementsApi } from "../../api/abonnements";
 import { useToast } from "../../context/ToastContext";
 import { useConfirm } from "../../context/ConfirmContext";
 import Skeleton from "../../components/ui/Skeleton";
+
+const STATUTS_ABONNEMENT = {
+  essai: { label: "Essai gratuit", classe: "bg-blue-50 text-blue-600" },
+  actif: { label: "Actif", classe: "bg-emerald-50 text-emerald-600" },
+  expire: { label: "Expiré", classe: "bg-red-50 text-red-500" },
+  annule: { label: "Annulé", classe: "bg-red-50 text-red-500" },
+};
 
 export default function Abonnement() {
   const [abonnement, setAbonnement] = useState(null);
@@ -30,7 +37,7 @@ export default function Abonnement() {
   }, []);
 
   const choisirPlan = async (plan) => {
-    if (abonnement?.plan?.code === plan.code && abonnement?.periodicite === periodicite) return;
+    if (abonnement?.plan?.code === plan.code && abonnement?.periodicite === periodicite && abonnement?.statut === "actif") return;
 
     const ok = await confirmer({
       titre: `Passer au plan ${plan.nom} ?`,
@@ -45,8 +52,11 @@ export default function Abonnement() {
       await abonnementsApi.changerPlan(plan.code, periodicite);
       notifier(`Plan changé pour "${plan.nom}".`);
       charger();
-    } catch {
-      notifier("Impossible de changer de plan.", "erreur");
+    } catch (err) {
+      // Le serveur explique pourquoi (par exemple trop de produits pour le plan visé) : on l'affiche.
+      const data = err.response?.data;
+      const premier = data && typeof data === "object" ? Object.values(data)[0] : data;
+      notifier((Array.isArray(premier) ? premier[0] : premier) || "Impossible de changer de plan.", "erreur");
     }
   };
 
@@ -61,6 +71,13 @@ export default function Abonnement() {
     );
   }
 
+  // Le plan d'essai n'est pas un plan qu'on choisit : il est attribué à l'inscription.
+  const plansChoisissables = plans.filter((p) => p.code !== "essai");
+  const usage = abonnement?.usage;
+  const statutAbonnement = STATUTS_ABONNEMENT[abonnement?.statut] || STATUTS_ABONNEMENT.actif;
+  const pourcentageProduits =
+    usage && usage.produits_max ? Math.min((usage.produits_utilises / usage.produits_max) * 100, 100) : 0;
+
   return (
     <div>
       <h1 className="font-display text-[24px] font-medium text-[#12181B] mb-6">Abonnement</h1>
@@ -72,10 +89,8 @@ export default function Abonnement() {
               <p className="text-[13px] text-[#12181B]/50">Plan actuel</p>
               <p className="text-[18px] font-medium text-[#12181B]">{abonnement.plan.nom}</p>
             </div>
-            <span className={`text-[12px] font-medium rounded-full px-3 py-1 ${
-              abonnement.statut === "essai" ? "bg-blue-50 text-blue-600" : "bg-emerald-50 text-emerald-600"
-            }`}>
-              {abonnement.statut === "essai" ? "Essai gratuit" : "Actif"}
+            <span className={`text-[12px] font-medium rounded-full px-3 py-1 ${statutAbonnement.classe}`}>
+              {statutAbonnement.label}
             </span>
           </div>
 
@@ -84,7 +99,36 @@ export default function Abonnement() {
               <Clock size={14} />
               {abonnement.jours_restants_essai > 0
                 ? `${abonnement.jours_restants_essai} jour${abonnement.jours_restants_essai > 1 ? "s" : ""} restant${abonnement.jours_restants_essai > 1 ? "s" : ""} d'essai`
-                : "Ton essai gratuit est terminé — choisis un plan pour continuer."}
+                : "Ton essai gratuit se termine aujourd'hui — choisis un plan pour continuer."}
+            </div>
+          )}
+
+          {usage?.bloque && (
+            <div className="flex items-start gap-2 mt-3 rounded-lg bg-amber-50 border border-amber-100 px-3.5 py-2.5 text-[13px] text-amber-800">
+              <AlertTriangle size={15} className="mt-0.5 shrink-0" />
+              <span>{usage.message}</span>
+            </div>
+          )}
+
+          {usage && (
+            <div className="mt-4">
+              <div className="flex items-center justify-between text-[13px] text-[#12181B]/60 mb-1.5">
+                <span>Produits</span>
+                <span>
+                  {usage.produits_utilises}
+                  {usage.produits_max ? ` / ${usage.produits_max}` : " · illimités"}
+                </span>
+              </div>
+              {usage.produits_max && (
+                <div className="h-1.5 rounded-full bg-[#12181B]/[0.06] overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      pourcentageProduits >= 100 ? "bg-red-500" : pourcentageProduits >= 80 ? "bg-amber-500" : "bg-[#0E7C66]"
+                    }`}
+                    style={{ width: `${pourcentageProduits}%` }}
+                  />
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -109,10 +153,13 @@ export default function Abonnement() {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {plans.map((plan) => {
+      <div className={`grid grid-cols-1 gap-4 ${plansChoisissables.length >= 3 ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
+        {plansChoisissables.map((plan) => {
           const prix = periodicite === "annuel" ? plan.prix_annuel : plan.prix_mensuel;
-          const estActuel = abonnement?.plan?.code === plan.code && abonnement?.periodicite === periodicite;
+          const estActuel =
+            abonnement?.plan?.code === plan.code &&
+            abonnement?.periodicite === periodicite &&
+            abonnement?.statut === "actif";
           return (
             <div
               key={plan.id}

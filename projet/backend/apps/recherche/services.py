@@ -5,7 +5,7 @@ from datetime import timedelta
 import numpy as np
 from django.conf import settings
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
-from django.db.models import Count, F, Q
+from django.db.models import Case, Count, DecimalField, F, Q, When 
 from django.utils import timezone
 from pgvector.django import CosineDistance
 
@@ -372,28 +372,58 @@ def produits_populaires_global(limite=12):
 
 
 ORDRES_TRI = {
-    "prix_asc": ["prix", "-date_publication"],
-    "prix_desc": ["-prix", "-date_publication"],
+    "prix_asc": ["prix_effectif", "-date_publication"],
+    "prix_desc": ["-prix_effectif", "-date_publication"],
     "nouveau": ["-date_publication"],
     "populaire": ["-nombre_ventes", "-date_publication"],
 }
 
 
-def produits_filtres_global(requete="", categorie="", tri="pertinence", limite=48):
-    """Recherche / filtre toutes boutiques. Retourne des ids dans l'ordre voulu."""
-    base = _produits_marketplace()
-    if categorie:
-        base = base.filter(categorie__nom__iexact=categorie)
+def _q_promo_active():
+    maintenant = timezone.now()
+    return (
+        Q(prix_promo__isnull=False, prix_promo__lt=F("prix"))
+        & (Q(promo_debut__isnull=True) | Q(promo_debut__lte=maintenant))
+        & (Q(promo_fin__isnull=True) | Q(promo_fin__gte=maintenant))
+    )
+
+
+def produits_filtres_global(
+    requete="", categories=None, tri="pertinence", limite=48,
+    boutique="", prix_min=None, prix_max=None, promo=False, en_stock=False,
+):
+    """Recherche et filtres toutes boutiques. Retourne des ids dans l'ordre voulu."""
+    # Prix réellement payé : prix promo si la promotion est active
+    base = _produits_marketplace().annotate(
+        prix_effectif=Case(
+            When(_q_promo_active(), then=F("prix_promo")),
+            default=F("prix"),
+            output_field=DecimalField(max_digits=12, decimal_places=2),
+        )
+    )
+    if categories:
+        q = Q()
+        for nom in categories:
+            q |= Q(categorie__nom__iexact=nom)
+        base = base.filter(q)
+    if boutique:
+        base = base.filter(tenant__sous_domaine=boutique)
+    if prix_min is not None:
+        base = base.filter(prix_effectif__gte=prix_min)
+    if prix_max is not None:
+        base = base.filter(prix_effectif__lte=prix_max)
+    if promo:
+        base = base.filter(_q_promo_active())
+    if en_stock:
+        base = base.filter(Q(gestion_stock=False) | Q(stock__gt=0))
 
     if requete:
         ids = rechercher_produits(None, requete, limite, base=base)
         if tri in ORDRES_TRI and ids:
-            ids = list(
-                Produit.objects.filter(id__in=ids).order_by(*ORDRES_TRI[tri]).values_list("id", flat=True)
-            )
+            ids = list(base.filter(id__in=ids).order_by(*ORDRES_TRI[tri]).values_list("id", flat=True))
         return ids
 
-    ordre = ORDRES_TRI.get(tri, ["-nombre_ventes", "-date_publication"])
+    ordre = ORDRES_TRI.get(tri, ORDRES_TRI["populaire"])
     return list(base.order_by(*ordre).values_list("id", flat=True)[:limite])
 
 
@@ -428,3 +458,14 @@ def boutiques_marketplace(limite=12):
         .filter(nb__gt=0)
         .order_by("-est_verifie", "-nb")[:limite]
     )
+
+def categories_boutique(tenant):
+    """Catégories d'une boutique avec le nombre de produits publiés."""
+    lignes = (
+        _produits_publics(tenant)
+        .filter(categorie__isnull=False)
+        .values("categorie__nom")
+        .annotate(n=Count("id"))
+        .order_by("-n")
+    )
+    return [{"nom": l["categorie__nom"], "nombre": l["n"]} for l in lignes]

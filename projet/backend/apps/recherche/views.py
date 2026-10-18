@@ -1,4 +1,5 @@
 import uuid
+from decimal import Decimal, InvalidOperation
 
 from django.shortcuts import get_object_or_404
 from rest_framework import status
@@ -12,18 +13,19 @@ from apps.catalogue.serializers import ProduitMarketplaceSerializer, ProduitPubl
 from apps.tenants.models import Tenant
 
 from .services import (
+    boutiques_marketplace,
+    categories_boutique,
+    categories_marketplace,
     enregistrer_evenement,
+    produits_filtres_global,
     produits_nouveautes_global,
     produits_populaires_global,
     produits_pour_vous,
     produits_pour_vous_global,
+    produits_promotions_global,
     produits_recommandes,
     produits_similaires,
     rechercher_produits,
-    boutiques_marketplace,
-    categories_marketplace,
-    produits_filtres_global,
-    produits_promotions_global,
 )
 
 
@@ -40,6 +42,13 @@ def _contexte_visiteur(request):
     visiteur_id = request.headers.get("X-Visiteur-Id", "").strip()[:64]
     utilisateur = request.user if request.user and request.user.is_authenticated else None
     return visiteur_id, utilisateur
+
+
+def _decimal(valeur):
+    try:
+        return Decimal(valeur) if valeur not in (None, "") else None
+    except InvalidOperation:
+        return None
 
 
 def _serialiser(ids, tenant, request):
@@ -66,6 +75,19 @@ def _serialiser_global(ids, request):
     return ProduitMarketplaceSerializer(ordonnes, many=True, context={"request": request}).data
 
 
+def _boutiques(request):
+    return [
+        {
+            "nom": t.nom_boutique,
+            "sous_domaine": t.sous_domaine,
+            "logo": request.build_absolute_uri(t.logo.url) if t.logo else None,
+            "verifie": t.est_verifie,
+            "nombre_produits": t.nb,
+        }
+        for t in boutiques_marketplace()
+    ]
+
+
 class RechercheProduitsView(APIView):
     permission_classes = [AllowAny]
     throttle_classes = [RechercheThrottle]
@@ -86,6 +108,42 @@ class RechercheProduitsView(APIView):
             "results": results,
             "count": len(results),
             "recommandations": _serialiser(ids_reco, tenant, request),
+        })
+
+
+class CatalogueBoutiqueView(APIView):
+    """Catalogue d'une boutique : recherche + filtres + tri, avec les catégories de la boutique."""
+    permission_classes = [AllowAny]
+    throttle_classes = [RechercheThrottle]
+
+    def get(self, request, sous_domaine):
+        tenant = get_object_or_404(Tenant, sous_domaine=sous_domaine)
+        p = request.query_params
+        q = p.get("q", "").strip()[:200]
+        if len(q) < 2:
+            q = ""
+        categories = [c.strip() for c in p.get("categories", "").split(",") if c.strip()][:10]
+
+        ids = produits_filtres_global(
+            requete=q,
+            categories=categories,
+            tri=p.get("tri", "pertinence"),
+            boutique=sous_domaine,
+            prix_min=_decimal(p.get("prix_min")),
+            prix_max=_decimal(p.get("prix_max")),
+            promo=p.get("promo") == "1",
+            en_stock=p.get("en_stock") == "1",
+            limite=100,
+        )
+        reco = []
+        if q:
+            visiteur_id, utilisateur = _contexte_visiteur(request)
+            reco = _serialiser(produits_recommandes(tenant, ids, visiteur_id, utilisateur), tenant, request)
+
+        return Response({
+            "results": _serialiser(ids, tenant, request),
+            "recommandations": reco,
+            "categories": categories_boutique(tenant),
         })
 
 
@@ -112,19 +170,6 @@ class PourVousView(APIView):
         return Response({"results": _serialiser(ids, tenant, request), "personnalise": personnalise})
 
 
-def _boutiques(request):
-    return [
-        {
-            "nom": t.nom_boutique,
-            "sous_domaine": t.sous_domaine,
-            "logo": request.build_absolute_uri(t.logo.url) if t.logo else None,
-            "verifie": t.est_verifie,
-            "nombre_produits": t.nb,
-        }
-        for t in boutiques_marketplace()
-    ]
-
-
 class DecouvrirView(APIView):
     """Page client : produits de toutes les boutiques, personnalisés."""
     permission_classes = [IsAuthenticated]
@@ -145,17 +190,26 @@ class DecouvrirView(APIView):
 
 
 class DecouvrirRechercheView(APIView):
-    """Recherche, filtre par catégorie et tri, toutes boutiques confondues."""
+    """Recherche + filtres (catégories, boutique, prix, promo, stock) + tri, toutes boutiques."""
     permission_classes = [IsAuthenticated]
     throttle_classes = [RechercheThrottle]
 
     def get(self, request):
-        q = request.query_params.get("q", "").strip()[:200]
+        p = request.query_params
+        q = p.get("q", "").strip()[:200]
         if len(q) < 2:
             q = ""
-        categorie = request.query_params.get("categorie", "").strip()[:100]
-        tri = request.query_params.get("tri", "pertinence")
-        ids = produits_filtres_global(q, categorie, tri)
+        categories = [c.strip() for c in p.get("categories", "").split(",") if c.strip()][:10]
+        ids = produits_filtres_global(
+            requete=q,
+            categories=categories,
+            tri=p.get("tri", "pertinence"),
+            boutique=p.get("boutique", "").strip()[:60],
+            prix_min=_decimal(p.get("prix_min")),
+            prix_max=_decimal(p.get("prix_max")),
+            promo=p.get("promo") == "1",
+            en_stock=p.get("en_stock") == "1",
+        )
         results = _serialiser_global(ids, request)
         return Response({"results": results, "count": len(results)})
 
