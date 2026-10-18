@@ -6,10 +6,12 @@ from .views import (
     PourVousView,
     ProduitsSimilairesView,
     RechercheProduitsView,
+    DecouvrirRechercheView,
 )
 
 urlpatterns = [
     path("decouvrir/", DecouvrirView.as_view(), name="decouvrir"),
+    path("decouvrir/recherche/", DecouvrirRechercheView.as_view(), name="decouvrir-recherche"),
     path("<str:sous_domaine>/produits/", RechercheProduitsView.as_view(), name="recherche-produits"),
     path(
         "<str:sous_domaine>/produits/<str:slug>/similaires/",

@@ -4,6 +4,7 @@ from apps.comptes.views import CustomTokenObtainPairView
 from rest_framework_simplejwt.views import TokenRefreshView
 from django.conf import settings
 from django.conf.urls.static import static
+from apps.tenants.stats import StatistiquesAdminView
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -20,6 +21,8 @@ urlpatterns = [
     path("api/comptes/", include("apps.comptes.urls")),
 
     path("api/recherche/", include("apps.recherche.urls")),
+
+    path("api/admin/statistiques/", StatistiquesAdminView.as_view(), name="admin-statistiques"),
 ]
 
 if settings.DEBUG:

@@ -20,6 +20,10 @@ from .services import (
     produits_recommandes,
     produits_similaires,
     rechercher_produits,
+    boutiques_marketplace,
+    categories_marketplace,
+    produits_filtres_global,
+    produits_promotions_global,
 )
 
 
@@ -108,6 +112,19 @@ class PourVousView(APIView):
         return Response({"results": _serialiser(ids, tenant, request), "personnalise": personnalise})
 
 
+def _boutiques(request):
+    return [
+        {
+            "nom": t.nom_boutique,
+            "sous_domaine": t.sous_domaine,
+            "logo": request.build_absolute_uri(t.logo.url) if t.logo else None,
+            "verifie": t.est_verifie,
+            "nombre_produits": t.nb,
+        }
+        for t in boutiques_marketplace()
+    ]
+
+
 class DecouvrirView(APIView):
     """Page client : produits de toutes les boutiques, personnalisés."""
     permission_classes = [IsAuthenticated]
@@ -119,9 +136,28 @@ class DecouvrirView(APIView):
         return Response({
             "pour_vous": _serialiser_global(ids, request),
             "personnalise": personnalise,
+            "promotions": _serialiser_global(produits_promotions_global(), request),
             "nouveautes": _serialiser_global(produits_nouveautes_global(), request),
             "populaires": _serialiser_global(produits_populaires_global(), request),
+            "categories": categories_marketplace(),
+            "boutiques": _boutiques(request),
         })
+
+
+class DecouvrirRechercheView(APIView):
+    """Recherche, filtre par catégorie et tri, toutes boutiques confondues."""
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [RechercheThrottle]
+
+    def get(self, request):
+        q = request.query_params.get("q", "").strip()[:200]
+        if len(q) < 2:
+            q = ""
+        categorie = request.query_params.get("categorie", "").strip()[:100]
+        tri = request.query_params.get("tri", "pertinence")
+        ids = produits_filtres_global(q, categorie, tri)
+        results = _serialiser_global(ids, request)
+        return Response({"results": results, "count": len(results)})
 
 
 class EvenementView(APIView):

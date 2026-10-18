@@ -5,13 +5,14 @@ from datetime import timedelta
 import numpy as np
 from django.conf import settings
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
-from django.db.models import Q
+from django.db.models import Count, F, Q
 from django.utils import timezone
 from pgvector.django import CosineDistance
 
 from apps.catalogue.models import Produit
 
 from .models import Evenement, ProduitEmbedding
+from apps.tenants.models import Tenant
 
 _modele = None
 _verrou = threading.Lock()
@@ -106,8 +107,10 @@ def _produits_publics(tenant):
     return Produit.objects.filter(tenant=tenant, statut="publie", est_supprime=False)
 
 
-def recherche_plein_texte(tenant, requete):
+
+def recherche_plein_texte(tenant, requete, base=None):
     """Correspondances de mots (avec racinisation française). Retourne des ids classés."""
+    produits = base if base is not None else _produits_publics(tenant)
     vecteur = (
         SearchVector("nom", weight="A", config="french")
         + SearchVector("marque", weight="B", config="french")
@@ -115,12 +118,37 @@ def recherche_plein_texte(tenant, requete):
     )
     query = SearchQuery(requete, config="french", search_type="websearch")
     qs = (
-        _produits_publics(tenant)
-        .annotate(recherche=vecteur, rang=SearchRank(vecteur, query))
-        .filter(recherche=query)  # vrai test de correspondance (opérateur @@)
+        produits.annotate(recherche=vecteur, rang=SearchRank(vecteur, query))
+        .filter(recherche=query)
         .order_by("-rang")
     )
     return list(qs.values_list("id", flat=True)[:LIMITE_CANDIDATS])
+
+
+def recherche_semantique(tenant, requete, base=None):
+    """Produits proches par le sens : au-dessus du plancher et proches du meilleur résultat."""
+    produits = base if base is not None else _produits_publics(tenant)
+    vecteur = vectoriser_requete(requete)
+    classement = list(
+        produits.filter(embedding__isnull=False)
+        .annotate(distance=CosineDistance("embedding__vecteur", vecteur))
+        .order_by("distance")
+        .values_list("id", "distance")[:LIMITE_CANDIDATS]
+    )
+    return filtrer_par_similarite(classement, SEUIL_SIMILARITE, MARGE_RELATIVE)
+
+
+def rechercher_produits(tenant, requete, limite=24, base=None):
+    """Fusionne les deux classements (RRF) et retourne les ids triés par pertinence."""
+    scores = {}
+    for ids in (
+        recherche_plein_texte(tenant, requete, base),
+        recherche_semantique(tenant, requete, base),
+    ):
+        for rang, produit_id in enumerate(ids, start=1):
+            scores[produit_id] = scores.get(produit_id, 0) + 1 / (K_RRF + rang)
+    return sorted(scores, key=scores.get, reverse=True)[:limite]
+
 
 
 def filtrer_par_similarite(classement, seuil, marge):
@@ -134,26 +162,10 @@ def filtrer_par_similarite(classement, seuil, marge):
     return [i for i, d in classement if 1 - d >= limite]
 
 
-def recherche_semantique(tenant, requete):
-    """Produits proches par le sens : au-dessus du plancher et proches du meilleur résultat."""
-    vecteur = vectoriser_requete(requete)
-    classement = list(
-        _produits_publics(tenant)
-        .filter(embedding__isnull=False)
-        .annotate(distance=CosineDistance("embedding__vecteur", vecteur))
-        .order_by("distance")
-        .values_list("id", "distance")[:LIMITE_CANDIDATS]
-    )
-    return filtrer_par_similarite(classement, SEUIL_SIMILARITE, MARGE_RELATIVE)
 
 
-def rechercher_produits(tenant, requete, limite=24):
-    """Fusionne les deux classements (RRF) et retourne les ids triés par pertinence."""
-    scores = {}
-    for ids in (recherche_plein_texte(tenant, requete), recherche_semantique(tenant, requete)):
-        for rang, produit_id in enumerate(ids, start=1):
-            scores[produit_id] = scores.get(produit_id, 0) + 1 / (K_RRF + rang)
-    return sorted(scores, key=scores.get, reverse=True)[:limite]
+
+
 
 
 # --------------------------------------------------------------------------
@@ -356,4 +368,63 @@ def produits_populaires_global(limite=12):
         _produits_marketplace()
         .order_by("-nombre_ventes", "-date_publication")
         .values_list("id", flat=True)[:limite]
+    )
+
+
+ORDRES_TRI = {
+    "prix_asc": ["prix", "-date_publication"],
+    "prix_desc": ["-prix", "-date_publication"],
+    "nouveau": ["-date_publication"],
+    "populaire": ["-nombre_ventes", "-date_publication"],
+}
+
+
+def produits_filtres_global(requete="", categorie="", tri="pertinence", limite=48):
+    """Recherche / filtre toutes boutiques. Retourne des ids dans l'ordre voulu."""
+    base = _produits_marketplace()
+    if categorie:
+        base = base.filter(categorie__nom__iexact=categorie)
+
+    if requete:
+        ids = rechercher_produits(None, requete, limite, base=base)
+        if tri in ORDRES_TRI and ids:
+            ids = list(
+                Produit.objects.filter(id__in=ids).order_by(*ORDRES_TRI[tri]).values_list("id", flat=True)
+            )
+        return ids
+
+    ordre = ORDRES_TRI.get(tri, ["-nombre_ventes", "-date_publication"])
+    return list(base.order_by(*ordre).values_list("id", flat=True)[:limite])
+
+
+def categories_marketplace(limite=20):
+    lignes = (
+        _produits_marketplace()
+        .filter(categorie__isnull=False)
+        .values("categorie__nom")
+        .annotate(n=Count("id"))
+        .order_by("-n")[:limite]
+    )
+    return [{"nom": l["categorie__nom"], "nombre": l["n"]} for l in lignes]
+
+
+def produits_promotions_global(limite=12):
+    maintenant = timezone.now()
+    return list(
+        _produits_marketplace()
+        .filter(prix_promo__isnull=False, prix_promo__lt=F("prix"))
+        .filter(Q(promo_debut__isnull=True) | Q(promo_debut__lte=maintenant))
+        .filter(Q(promo_fin__isnull=True) | Q(promo_fin__gte=maintenant))
+        .order_by("-date_publication")
+        .values_list("id", flat=True)[:limite]
+    )
+
+
+def boutiques_marketplace(limite=12):
+    return list(
+        Tenant.objects.filter(est_supprime=False)
+        .exclude(statut="suspendu")
+        .annotate(nb=Count("produits", filter=Q(produits__statut="publie", produits__est_supprime=False)))
+        .filter(nb__gt=0)
+        .order_by("-est_verifie", "-nb")[:limite]
     )

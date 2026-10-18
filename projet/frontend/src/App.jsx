@@ -19,6 +19,7 @@ import Suivi from "./pages/boutique/Suivi";
 import Commandes from "./pages/commercant/Commandes";
 import Paiement from "./pages/boutique/Paiement";
 import AdminLayout from "./layouts/AdminLayout";
+import Tableau from "./pages/admin/Tableau";
 import Boutiques from "./pages/admin/Boutiques";
 import Utilisateurs from "./pages/admin/Utilisateurs";
 import ClientLayout from "./layouts/ClientLayout";
@@ -52,28 +53,29 @@ export default function App() {
       </Route>
 
       <Route
-          element={
+        element={
           <RouteProtegee rolesAutorises={["superadmin"]}>
-          <AdminLayout />
+            <AdminLayout />
           </RouteProtegee>
-          }
-        >
-      <Route path="/admin" element={<Boutiques />} />
-      <Route path="/admin/utilisateurs" element={<Utilisateurs />} />
+        }
+      >
+        <Route path="/admin" element={<Tableau />} />
+        <Route path="/admin/boutiques" element={<Boutiques />} />
+        <Route path="/admin/utilisateurs" element={<Utilisateurs />} />
       </Route>
 
       <Route path="/boutique/:sousDomaine" element={<BoutiquePubliqueLayout />}>
-          <Route index element={<AccueilBoutique />} />
-          <Route path="catalogue" element={<CatalogueBoutique />} />
-          <Route path="produits/:slug" element={<FicheProduit />} />
-          <Route path="panier" element={<Panier />} />
-          <Route path="commande" element={<TunnelCommande />} />
-          <Route path="commande/:numeroCommande/confirmation" element={<Confirmation />} />
-          <Route path="commande/:numeroCommande/suivi" element={<Suivi />} />
-          <Route path="commande/:numeroCommande/paiement" element={<Paiement />} />
+        <Route index element={<AccueilBoutique />} />
+        <Route path="catalogue" element={<CatalogueBoutique />} />
+        <Route path="produits/:slug" element={<FicheProduit />} />
+        <Route path="panier" element={<Panier />} />
+        <Route path="commande" element={<TunnelCommande />} />
+        <Route path="commande/:numeroCommande/confirmation" element={<Confirmation />} />
+        <Route path="commande/:numeroCommande/suivi" element={<Suivi />} />
+        <Route path="commande/:numeroCommande/paiement" element={<Paiement />} />
       </Route>
 
-            <Route
+      <Route
         path="/decouvrir"
         element={
           <RouteProtegee rolesAutorises={["client"]}>
@@ -83,16 +85,15 @@ export default function App() {
       />
 
       <Route
-          element={
+        element={
           <RouteProtegee rolesAutorises={["client", "commercant", "superadmin"]}>
-          <ClientLayout />
+            <ClientLayout />
           </RouteProtegee>
         }
       >
-          <Route path="/mon-compte" element={<Profil />} />
-          <Route path="/mon-compte/commandes" element={<MesCommandesTab />} />
+        <Route path="/mon-compte" element={<Profil />} />
+        <Route path="/mon-compte/commandes" element={<MesCommandesTab />} />
       </Route>
-      
     </Routes>
   );
 }

@@ -41,4 +41,7 @@ export const catalogueApi = {
   // --- Page client "Découvrir" (toutes boutiques) ---
   decouvrir: () =>
     apiClient.get("/api/recherche/decouvrir/", { headers: enteteVisiteur() }),
+
+    rechercherDecouvrir: (params) =>
+    apiClient.get("/api/recherche/decouvrir/recherche/", { params, headers: enteteVisiteur() }),
 };
